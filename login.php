@@ -26,39 +26,43 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     }
 
     if(empty($username_err) && empty($password_err)){
-        $sql = "SELECT id, username, first_name, last_name, password FROM users WHERE username = ?";
+      $sql = "SELECT users.id, username, first_name, last_name, password, roles.module 
+              FROM users 
+              INNER JOIN roles ON users.role = roles.id 
+              WHERE username = ?";
 
-        if($stmt = $conn->prepare($sql)){
-            $stmt->bind_param("s", $param_username);
+      if($stmt = $conn->prepare($sql)){
+        $stmt->bind_param("s", $param_username);
 
-            $param_username = $username;
+        $param_username = $username;
 
-            if($stmt->execute()){
-                $stmt->store_result();
+        if($stmt->execute()){
+          $stmt->store_result();
 
-                if($stmt->num_rows == 1){
-                    $stmt->bind_result($id, $username, $first_name, $last_name, $hashed_password);
-                    if($stmt->fetch()){
-                        if(md5($password) === $hashed_password){
-                            session_start();
-                            $_SESSION["user_id"] = $id;
-                            $_SESSION["username"] = $username;
-                            $_SESSION["fullname"] = $first_name . " " . $last_name;
+          if($stmt->num_rows == 1){
+            $stmt->bind_result($id, $username, $first_name, $last_name, $hashed_password, $module);
+            if($stmt->fetch()){
+              if(md5($password) === $hashed_password){
+                session_start();
+                $_SESSION["user_id"] = $id;
+                $_SESSION["username"] = $username;
+                $_SESSION["fullname"] = $first_name . " " . $last_name;
+                $_SESSION["module"] = json_decode($module);
 
-                            header("location: dashboard.php");
-                        } else{
-                            $password_err = "The password you entered was not valid.";
-                        }
-                    }
-                } else{
-                    $username_err = "No account found with that username.";
-                }
-            } else{
-                echo "Oops! Something went wrong. Please try again later.";
+                header("location: dashboard.php");
+              } else{
+                $password_err = "The password you entered was not valid.";
+              }
             }
-
-            $stmt->close();
+          } else{
+            $username_err = "No account found with that username.";
+          }
+        } else{
+          echo "Oops! Something went wrong. Please try again later.";
         }
+
+        $stmt->close();
+      }
     }
 
     $conn->close();

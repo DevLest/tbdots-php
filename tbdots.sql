@@ -50,6 +50,28 @@ INSERT INTO `locations` (`id`, `location`, `contact`, `updated_at`, `created_at`
 	(5, 'La Castellana', NULL, '2024-05-24 09:02:57', '2024-05-24 09:02:57'),
 	(6, 'Moises Padilla', NULL, '2024-05-24 09:03:06', '2024-05-24 09:03:06');
 
+-- Dumping structure for table tbdots.modules
+CREATE TABLE IF NOT EXISTS `modules` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `module` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.modules: ~0 rows (approximately)
+INSERT INTO `modules` (`id`, `module`) VALUES
+	(1, 'user_index'),
+	(2, 'user_add'),
+	(3, 'user_edit'),
+	(4, 'user_delete'),
+	(5, 'physician_index'),
+	(6, 'physician_add'),
+	(7, 'physician_edit'),
+	(8, 'physician_delete'),
+	(9, 'patient_index'),
+	(10, 'patient_add'),
+	(11, 'patient_edit'),
+	(12, 'patient_delete');
+
 -- Dumping structure for table tbdots.patients
 CREATE TABLE IF NOT EXISTS `patients` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -64,40 +86,32 @@ CREATE TABLE IF NOT EXISTS `patients` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `FK_patients_physician` (`physician_id`),
   KEY `FK_patients_location` (`location_id`),
   KEY `FK_patients_lab_results` (`lab_results_id`),
+  KEY `FK_patients_users` (`physician_id`),
   CONSTRAINT `FK_patients_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`),
   CONSTRAINT `FK_patients_location` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`),
-  CONSTRAINT `FK_patients_physician` FOREIGN KEY (`physician_id`) REFERENCES `physicians` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `FK_patients_users` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.patients: ~0 rows (approximately)
-
--- Dumping structure for table tbdots.physicians
-CREATE TABLE IF NOT EXISTS `physicians` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `fullname` varchar(50) NOT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Dumping data for table tbdots.physicians: ~0 rows (approximately)
 
 -- Dumping structure for table tbdots.roles
 CREATE TABLE IF NOT EXISTS `roles` (
   `id` int NOT NULL AUTO_INCREMENT,
   `description` varchar(50) NOT NULL DEFAULT '0',
-  `permission` text NOT NULL,
+  `module` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.roles: ~0 rows (approximately)
-INSERT INTO `roles` (`id`, `description`, `permission`, `updated_at`, `created_at`) VALUES
-	(3, 'test', 'test', '2024-05-03 05:28:55', '2024-05-03 05:28:56');
+INSERT INTO `roles` (`id`, `description`, `module`, `updated_at`, `created_at`) VALUES
+	(1, 'Super Admin', '[1,2,3,4,5,6,7,8,9,10,11,12]', '2024-05-26 07:48:21', '2024-05-26 07:20:56'),
+	(2, 'Admin', '[1,2,3,4,5,6,7,8,9,10,11,12]', '2024-05-26 07:48:28', '2024-05-26 07:21:42'),
+	(3, 'Physician', '[5,9,10,11,12]', '2024-05-26 08:01:46', '2024-05-26 07:22:14'),
+	(4, 'Regular', '[5,9,10,11,12]', '2024-05-26 08:01:50', '2024-05-26 07:23:23');
 
 -- Dumping structure for table tbdots.test_lists
 CREATE TABLE IF NOT EXISTS `test_lists` (
@@ -131,11 +145,13 @@ CREATE TABLE IF NOT EXISTS `users` (
   PRIMARY KEY (`id`),
   KEY `FK_users_roles` (`role`),
   CONSTRAINT `FK_users_roles` FOREIGN KEY (`role`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.users: ~0 rows (approximately)
 INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`) VALUES
-	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 3, '2024-05-03 05:29:07', '2024-05-03 05:29:08');
+	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 2, '2024-05-03 05:29:07', '2024-05-26 08:02:01'),
+	(14, 'admin', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'admin', 2, '2024-05-27 06:30:41', '2024-05-27 06:30:41'),
+	(15, 'Docone', '827ccb0eea8a706c4c34a16891f84e7b', 'Doc', 'One', 3, '2024-05-27 06:39:57', '2024-05-27 06:40:07');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
