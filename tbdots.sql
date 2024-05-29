@@ -55,9 +55,9 @@ CREATE TABLE IF NOT EXISTS `modules` (
   `id` int NOT NULL AUTO_INCREMENT,
   `module` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.modules: ~0 rows (approximately)
+-- Dumping data for table tbdots.modules: ~14 rows (approximately)
 INSERT INTO `modules` (`id`, `module`) VALUES
 	(1, 'user_index'),
 	(2, 'user_add'),
@@ -70,7 +70,9 @@ INSERT INTO `modules` (`id`, `module`) VALUES
 	(9, 'patient_index'),
 	(10, 'patient_add'),
 	(11, 'patient_edit'),
-	(12, 'patient_delete');
+	(12, 'patient_delete'),
+	(13, 'patient_add_lab_results'),
+	(14, 'patient_show_lab_results');
 
 -- Dumping structure for table tbdots.patients
 CREATE TABLE IF NOT EXISTS `patients` (
@@ -106,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `roles` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.roles: ~0 rows (approximately)
+-- Dumping data for table tbdots.roles: ~4 rows (approximately)
 INSERT INTO `roles` (`id`, `description`, `module`, `updated_at`, `created_at`) VALUES
 	(1, 'Super Admin', '[1,2,3,4,5,6,7,8,9,10,11,12]', '2024-05-26 07:48:21', '2024-05-26 07:20:56'),
 	(2, 'Admin', '[1,2,3,4,5,6,7,8,9,10,11,12]', '2024-05-26 07:48:28', '2024-05-26 07:21:42'),
@@ -147,7 +149,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   CONSTRAINT `FK_users_roles` FOREIGN KEY (`role`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.users: ~0 rows (approximately)
+-- Dumping data for table tbdots.users: ~3 rows (approximately)
 INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`) VALUES
 	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 2, '2024-05-03 05:29:07', '2024-05-26 08:02:01'),
 	(14, 'admin', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'admin', 2, '2024-05-27 06:30:41', '2024-05-27 06:30:41'),

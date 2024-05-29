@@ -49,6 +49,16 @@
           </a>
         </li>
         <?php endif; ?>
+        <?php if(isset($_SESSION['module']) && in_array(14, $_SESSION['module'])): ?>
+        <li class="nav-item">
+          <a class="nav-link text-white <?php if($current_page == 'patients.php') echo 'active bg-gradient-primary'; ?>" href="patients.php">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons opacity-10">wheelchair_pickup</i>
+            </div>
+            <span class="nav-link-text ms-1">Laboratory</span>
+          </a>
+        </li>
+        <?php endif; ?>
         <!-- <li class="nav-item">
           <a class="nav-link text-white " href="../pages/tables.html">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
