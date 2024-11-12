@@ -9,60 +9,415 @@ if(!isset($_SESSION['user_id'])) {
 require_once "connection/db.php";
 include_once('head.php');
 
-if($_SERVER["REQUEST_METHOD"] == "POST"){
+// Consolidate all queries at the top
+$patientsSqlList = "SELECT 
+                      t.id,
+                      t.case_number,
+                      p.fullname,
+                      p.gender,
+                      p.age,
+                      t.bacteriological_status,
+                      t.diagnosis,
+                      t.treatment_regimen,
+                      t.treatment_outcome,
+                      t.created_at
+                  FROM tb_treatment_cards t
+                  JOIN patients p ON t.patient_id = p.id
+                  ORDER BY t.created_at DESC";
+                  
+$patientListReturns = $conn->query($patientsSqlList);
+$allPatientsList = $patientListReturns->fetch_all(MYSQLI_ASSOC); // Store all results in array
 
-  if(isset($_POST["location"]) && !empty(trim($_POST["location"]))){
-      $location = trim($_POST["location"]);
-  }
+$patientsSql = "SELECT p.*, l.location as location_name, u.first_name as physician_name,
+      lr.reason_for_examination, lr.history_of_treatment, lr.month_of_treatment, 
+      lr.test_requested
+      FROM patients p 
+      LEFT JOIN locations l ON p.location_id = l.id 
+      LEFT JOIN users u ON p.physician_id = u.id
+      LEFT JOIN lab_results lr ON p.lab_results_id = lr.id";
 
-  if(isset($_POST["fullname"]) && !empty(trim($_POST["fullname"]))){
-      $fullname = trim($_POST["fullname"]);
-  }
+$patientReturns = $conn->query($patientsSql);
+$allPatients = $patientReturns->fetch_all(MYSQLI_ASSOC); // Store all results in array
 
-  if(isset($_POST["age"]) && !empty(trim($_POST["age"]))){
-      $age = trim($_POST["age"]);
-  }
+$locationsSql = "SELECT id, location as name FROM locations";
+$locations = $conn->query($locationsSql);
 
-  if(isset($_POST["gender"]) && !empty(trim($_POST["gender"]))){
-      $gender = trim($_POST["gender"]);
-  }
+$physiciansSql = "SELECT * FROM users WHERE role = 3";
+$physicians = $conn->query($physiciansSql);
 
-  if(isset($_POST["contact"]) && !empty(trim($_POST["contact"]))){
-      $contact = trim($_POST["contact"]);
-  }
+// Handle form submissions
+if($_SERVER["REQUEST_METHOD"] == "POST") {
+    if(isset($_POST['case_number'])) {
+        try {
+            $conn->begin_transaction();
 
-  if(isset($_POST["address"]) && !empty(trim($_POST["address"]))){
-      $address = trim($_POST["address"]);
-  }
-  
-  if(isset($_POST["physician"]) && !empty(trim($_POST["physician"]))){
-      $physician = trim($_POST["physician"]);
-  }
-  
-  if(!empty($location) && !empty($fullname) && !empty($age) && !empty($gender) && !empty($contact) && !empty($address) && !empty($physician) && $_POST["id"] == ""){
-    $sql = "INSERT INTO patients (fullname, age, gender, contact, address, physician_id, location_id) VALUES ('$fullname', '$age', '$gender', '$contact', '$address', '$physician', '$location')";
-    $addUsers = $conn->query($sql);
-  } else if(isset($_POST["id"]) && !empty(trim($_POST["id"]))){
-    $sql = "UPDATE patients SET fullname = '$fullname', age = '$age', gender = '$gender', contact = '$contact', address = '$address', physician_id = '$physician', location_id = '$location' WHERE id = '".trim($_POST["id"])."'";
-    $editUser = $conn->query($sql);
-  }
+            // Map the form values to database enum values
+            $bacteriological_map = [
+                'confirmed' => 'Bacteriologically Confirmed',
+                'clinically' => 'Clinically Diagnosed'
+            ];
 
-  if(isset($_POST["delete_id"]) && !empty(trim($_POST["delete_id"]))){
-    $delete_id = trim($_POST["delete_id"]);
-    $sql = "DELETE FROM patients WHERE id = '$delete_id'";
-    $deleteUser = $conn->query($sql);
-  }
+            $tb_classification_map = [
+                'pulmonary' => 'Pulmonary',
+                'extra_pulmonary' => 'Extra Pulmonary'
+            ];
+
+            $diagnosis_map = [
+                'TB DISEASE' => 'TB DISEASE',
+                'TB INFECTION' => 'TB INFECTION',
+                'TB EXPOSURE' => 'TB EXPOSURE'
+            ];
+
+            $registration_group_map = [
+                'New' => 'New',
+                'Relapse' => 'Relapse',
+                'Treatment after Failure' => 'Treatment after Failure',
+                'TALF' => 'TALF',
+                'PTOU' => 'PTOU',
+                'Other' => 'Other'
+            ];
+
+            $treatment_outcome_map = [
+                'CURED' => 'CURED',
+                'TREATMENT COMPLETED' => 'TREATMENT COMPLETED',
+                'TREATMENT FAILED' => 'TREATMENT FAILED',
+                'DIED' => 'DIED',
+                'LOST TO FOLLOW UP' => 'LOST TO FOLLOW UP',
+                'NOT EVALUATED' => 'NOT EVALUATED'
+            ];
+
+            // Prepare all variables before binding
+            $case_number = $_POST['case_number'];
+            $date_opened = $_POST['date_opened'];
+            $region_province = $_POST['region_province'] ?? null;
+            $facility_name = $_POST['facility_name'] ?? null;
+            $patient_id = (int)$_POST['patient_id'];
+            $physician_id = (int)$_SESSION['user_id'];
+            $source_patient = $_POST['source_of_patient'] ?? null;
+            
+            // Convert to proper enum values
+            $bact_status = isset($_POST['bacteriological_status']) && $_POST['bacteriological_status'] !== 'Select Bacteriological Status' 
+                ? $bacteriological_map[$_POST['bacteriological_status']] 
+                : null;
+            
+            $tb_class = isset($_POST['tb_classification']) && $_POST['tb_classification'] !== 'Select Classification of TB Disease'
+                ? $tb_classification_map[$_POST['tb_classification']] 
+                : null;
+            
+            $diagnosis = isset($_POST['diagnosis']) && $_POST['diagnosis'] !== 'Select Diagnosis'
+                ? $diagnosis_map[$_POST['diagnosis']] 
+                : null;
+            
+            $reg_group = isset($_POST['registration_group']) 
+                ? $registration_group_map[$_POST['registration_group']] 
+                : null;
+            
+            $treatment_reg = $_POST['treatment_regimen'] ?? null;
+            $treatment_start = !empty($_POST['treatment_started_date']) ? $_POST['treatment_started_date'] : null;
+            $treatment_outcome = isset($_POST['treatment_outcome']) 
+                ? $treatment_outcome_map[$_POST['treatment_outcome']] 
+                : null;
+            $outcome_date = !empty($_POST['treatment_outcome_date']) ? $_POST['treatment_outcome_date'] : null;
+
+            // Debug the transformed values
+            error_log("Transformed values:");
+            error_log("bacteriological_status: " . $bact_status);
+            error_log("tb_classification: " . $tb_class);
+
+            $sql = "INSERT INTO tb_treatment_cards (
+                case_number, 
+                date_opened, 
+                region_province, 
+                facility_name, 
+                patient_id, 
+                physician_id, 
+                source_of_patient, 
+                bacteriological_status,
+                tb_classification, 
+                diagnosis, 
+                registration_group, 
+                treatment_regimen,
+                treatment_started_date, 
+                treatment_outcome, 
+                treatment_outcome_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $stmt = $conn->prepare($sql);
+            
+            // Fix: Use proper type definition for integers
+            $stmt->bind_param('ssssiisssssssss', 
+                $case_number,
+                $date_opened,
+                $region_province,
+                $facility_name,
+                $patient_id,
+                $physician_id,
+                $source_patient,
+                $bact_status,
+                $tb_class,
+                $diagnosis,
+                $reg_group,
+                $treatment_reg,
+                $treatment_start,
+                $treatment_outcome,
+                $outcome_date
+            );
+
+            if (!$stmt->execute()) {
+                throw new Exception("Execute failed: " . $stmt->error);
+            }
+
+            $treatment_card_id = $conn->insert_id;
+
+            // Save drug history if exists
+            if (isset($_POST['drug_history']) && $_POST['drug_history'] === 'Yes') {
+                $drugSql = "INSERT INTO drug_histories (treatment_card_id, has_history, duration, drugs_taken) 
+                           VALUES (?, 1, ?, ?)";
+                $drugStmt = $conn->prepare($drugSql);
+                $drugs = isset($_POST['drugs_taken']) ? implode(',', $_POST['drugs_taken']) : '';
+                $duration = $_POST['drug_duration'] ?? null;
+                $drugStmt->bind_param('iss', $treatment_card_id, $duration, $drugs);
+                
+                if (!$drugStmt->execute()) {
+                    throw new Exception("Error saving drug history: " . $drugStmt->error);
+                }
+            }
+
+            // Save household members only if there's valid data
+            if (!empty($_POST['household_name']) && is_array($_POST['household_name'])) {
+                foreach ($_POST['household_name'] as $key => $name) {
+                    if (!empty($name)) {
+                        $householdSql = "INSERT INTO household_members (treatment_card_id, first_name, age, screened) 
+                                       VALUES (?, ?, ?, ?)";
+                        $householdStmt = $conn->prepare($householdSql);
+                        $age = $_POST['household_age'][$key] ?? null;
+                        $screened = isset($_POST['household_screened'][$key]) ? 1 : 0;
+                        $householdStmt->bind_param('isis', $treatment_card_id, $name, $age, $screened);
+                        
+                        if (!$householdStmt->execute()) {
+                            throw new Exception("Error saving household member: " . $householdStmt->error);
+                        }
+                    }
+                }
+            }
+
+            // Save clinical examinations only if there's valid data
+            if (!empty($_POST['exam_date']) && is_array($_POST['exam_date'])) {
+                foreach ($_POST['exam_date'] as $key => $date) {
+                    if (!empty($date)) {
+                        $examSql = "INSERT INTO clinical_examinations (
+                            treatment_card_id, examination_date, weight, 
+                            unexplained_fever, unexplained_cough, unimproved_wellbeing,
+                            poor_appetite, positive_pe_findings, side_effects
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        
+                        $examStmt = $conn->prepare($examSql);
+                        
+                        $weight = $_POST['weight'][$key] ?: null;
+                        $fever = isset($_POST['fever'][$key]) ? 1 : 0;
+                        $cough = isset($_POST['cough'][$key]) ? 1 : 0;
+                        $wellbeing = isset($_POST['wellbeing'][$key]) ? 1 : 0;
+                        $appetite = isset($_POST['appetite'][$key]) ? 1 : 0;
+                        $pe_findings = isset($_POST['pe_findings'][$key]) ? 1 : 0;
+                        $side_effects = $_POST['side_effects'][$key] ?? '';
+                        
+                        $examStmt->bind_param('isdiiiiss', 
+                            $treatment_card_id,
+                            $date,
+                            $weight,
+                            $fever,
+                            $cough,
+                            $wellbeing,
+                            $appetite,
+                            $pe_findings,
+                            $side_effects
+                        );
+                        
+                        if (!$examStmt->execute()) {
+                            throw new Exception("Error saving clinical examination: " . $examStmt->error);
+                        }
+                    }
+                }
+            }
+
+            $conn->commit();
+            $_SESSION['success'] = "Treatment card and related records saved successfully.";
+            header("Location: laboratory.php");
+            exit;
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            error_log("Error in laboratory.php: " . $e->getMessage());
+            $_SESSION['error'] = "Error: " . $e->getMessage();
+            header("Location: laboratory.php");
+            exit;
+        }
+    }
 }
-
-$userssql = "SELECT * FROM patients";
-$users = $conn->query($userssql);
-
-$locationsql = "SELECT * FROM locations";
-$locations = $conn->query($locationsql);
-
-$physicianssql = "SELECT * FROM users WHERE role = 3";
-$physicians = $conn->query($physicianssql);
 ?>
+<!-- Add this in the head section or in your CSS file -->
+<style>
+  .form-control {
+    border: 1px solid #ced4da !important;
+    background-color: #fff !important;
+    padding: 0.375rem 0.75rem !important;
+  }
+
+  .form-control:focus {
+    border-color: #86b7fe !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  }
+
+  .modal-body {
+    padding: 20px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .card {
+    margin-bottom: 1.5rem;
+    border: 1px solid #dee2e6;
+  }
+
+  .card-header {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table td,
+  .table th {
+    padding: 0.5rem;
+    vertical-align: middle;
+  }
+
+  /* Custom styling for checkboxes */
+  .form-check-input {
+    width: 1.2em;
+    height: 1.2em;
+    margin-top: 0.25em;
+    border: 1px solid #ced4da;
+  }
+
+  /* Improve spacing between sections */
+  .row {
+    margin-bottom: 1rem;
+  }
+
+  /* Make labels more visible */
+  label {
+    font-weight: 500;
+    color: #212529;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Style select boxes consistently */
+  select.form-control {
+    appearance: auto;
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+  }
+
+  /* Add some hover effect to buttons */
+  .btn {
+    transition: all 0.2s;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Style the scrollbar */
+  .modal-body::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  .modal-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+
+  .modal-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  .form-check-inline {
+    margin-right: 1rem;
+  }
+
+  .form-check-label {
+    margin-bottom: 0;
+    margin-left: 0.25rem;
+  }
+
+  .form-group label {
+    margin-bottom: 0;
+  }
+
+  /* Optional: make select boxes a bit smaller to fit better in one line */
+  .form-control {
+    padding: 0.25rem 0.5rem;
+    height: auto;
+  }
+
+  /* Add these styles to fix the sidebar overlapping */
+  .modal {
+    z-index: 1060 !important;
+    /* Higher than sidebar */
+  }
+
+  /* Adjust sidebar z-index */
+  .sidenav {
+    z-index: 1040 !important;
+    /* Below modal and backdrop */
+  }
+
+  /* Make sure modal is properly positioned */
+  .modal-dialog {
+    margin: 1.75rem auto;
+    max-width: 95%;
+    position: relative;
+  }
+
+  /* Additional styling to ensure modal content is visible */
+  .modal-content {
+    position: relative;
+    background-color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+
+  /* Ensure proper spacing from top */
+  .modal.show {
+    padding-left: 0 !important;
+    /* Override any default padding that might cause issues */
+  }
+
+  /* If using Material Dashboard, add this */
+  .g-sidenav-show {
+    overflow-x: hidden;
+  }
+
+  /* Ensure modal is scrollable on smaller screens */
+  @media (max-width: 768px) {
+    .modal-dialog {
+      margin: 0.5rem;
+      max-width: calc(100% - 1rem);
+    }
+  }
+</style>
 
 <body class="g-sidenav-show  bg-gray-200">
   <?php
@@ -77,12 +432,14 @@ $physicians = $conn->query($physicianssql);
         <div class="col-12">
           <div class="card my-4">
             <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-              <div class="bg-gradient-primary shadow-primary border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
+              <div
+                class="bg-gradient-primary shadow-primary border-radius-lg pt-4 pb-3 d-flex justify-content-between align-items-center">
                 <h6 class="text-white text-capitalize ps-3 mb-0">Laboratory Result</h6>
                 <?php if(isset($_SESSION['module']) && in_array(10, $_SESSION['module'])): ?>
-                  <button type="button" class="btn btn-light text-capitalize me-3" data-bs-toggle="modal" data-bs-target="#addLaboratoryModal">
-                    Add Results
-                  </button>
+                <button type="button" class="btn btn-light text-capitalize me-3" data-bs-toggle="modal"
+                  data-bs-target="#addLaboratoryModal">
+                  Add Results
+                </button>
                 <?php endif; ?>
               </div>
             </div>
@@ -91,44 +448,57 @@ $physicians = $conn->query($physicianssql);
                 <table class="table align-items-center mb-0">
                   <thead>
                     <tr>
-                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Full name</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Address</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Case Number</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Patient Name</th>
                       <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Gender</th>
                       <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Age</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Registered Since</th>
-                      <th class="text-secondary opacity-7"></th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Bacteriological Status</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Diagnosis</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Treatment Regimen</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Treatment Outcome</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Date Added</th>
+                      <th class="text-secondary opacity-7">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <?php 
-                        if ($users->num_rows > 0) {
-                          // Output data of each row
-                          while($row = $users->fetch_assoc()) {
-                            echo "
-                              <tr>
-                                <td><span class='text-secondary text-xs font-weight-bold'>".$row["fullname"]."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["address"]."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".( $row["gender"] == 1 ? "Male" : "Female")."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["age"]."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
-                                <td class='align-middle'>";
-                            echo in_array(11, $_SESSION['module']) ? "
-                              <a href='javascript:void(0);' onclick='editUser(\"".$row["id"]."\",\"".$row["fullname"]."\",\"".$row["age"]."\",\"".$row["gender"]."\",\"".$row["contact"]."\",\"".$row["address"]."\",\"".$row["physician_id"]."\",\"".$row["location_id"]."\")' class='text-secondary font-weight-bold text-xs' data-toggle='tooltip' data-original-title='Edit user'>
-                                Edit
-                              </a>" : "";
-                            echo in_array(12, $_SESSION['module']) ? "
-                              <form method='POST' action='".htmlspecialchars($_SERVER["PHP_SELF"])."'>
-                                  <input type='hidden' name='delete_id' value='".$row["id"]."'>
-                                  <button type='submit' class='text-secondary font-weight-bold text-xs' data-toggle='tooltip' data-original-title='Delete user'>
-                                      Delete
-                                  </button>
-                              </form>" : "";
-                            echo "
-                              </td>
-                              </tr>
-                            ";
-                          }
-                        }
+                    <?php
+                      foreach($allPatientsList as $patientRow):
+                            echo "<tr>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>{$patientRow['case_number']}</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>{$patientRow['fullname']}</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" . ($patientRow['gender'] == 1 ? 'Male' : 'Female') . "</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>{$patientRow['age']}</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" . ($patientRow['bacteriological_status'] ?? 'N/A') . "</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" . ($patientRow['diagnosis'] ?? 'N/A') . "</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" . ($patientRow['treatment_regimen'] ?? 'N/A') . "</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" . ($patientRow['treatment_outcome'] ?? 'N/A') . "</span>
+                                </td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" . date('Y-m-d', strtotime($patientRow['created_at'])) . "</span>
+                                </td>
+                                <td class='align-middle'>
+                                    <button type='button' class='btn btn-sm btn-info' 
+                                            onclick='viewTreatmentCard({$patientRow['id']})'>
+                                        View Details
+                                    </button>
+                                </td>
+                            </tr>";
+                      endforeach;
                     ?>
                   </tbody>
                 </table>
@@ -137,67 +507,467 @@ $physicians = $conn->query($physicianssql);
           </div>
         </div>
       </div>
-      
+
       <?php
         include_once('footer.php');
       ?>
     </div>
-    <div class="modal fade" id="addLaboratoryModal" tabindex="-1" aria-labelledby="addLaboratoryModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
+    <div class="modal fade" id="addLaboratoryModal" tabindex="-1" aria-labelledby="addLaboratoryModalLabel"
+      aria-hidden="true">
+      <div class="modal-dialog modal-xl" style="max-width: 95%; z-index: 9999;">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="addLaboratoryModalLabel">Add Laboratory</h5>
+            <h5 class="modal-title" id="addLaboratoryModalLabel">TB Treatment Card</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <form role="form" class="text-start" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+          <form role="form" class="text-start" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
             <div class="modal-body">
-                <input type="hidden" class="form-control" id="id" name="id">
-                <div class="form-group">
-                  <label for="location">Location</label>
-                  <select class="form-control" id="location" name="location">
-                    <option>Choose a Location</option>
-                    <?php foreach($locations as $location): ?>
-                      <option value="<?php echo $location['id']; ?>"><?php echo $location['location']; ?></option>
-                    <?php endforeach; ?>
-                  </select>
+              <div class="card mb-3">
+                <div class="card-header">Basic Information</div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="form-group mb-2">
+                        <label>TB Case Number</label>
+                        <input type="text" class="form-control" name="case_number" required>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-group mb-2">
+                        <label>Date Card Opened</label>
+                        <input type="date" class="form-control" name="date_opened" required>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-group mb-2">
+                        <label>Region/Province</label>
+                        <input type="text" class="form-control" name="region_province">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Patient Name</label>
+                        <select class="form-control" name="patient_id" id="patient_select" required>
+                          <option value="">Select Patient</option>
+                          <?php 
+                          if (!empty($allPatients)) {
+                              foreach($allPatients as $patientRow): 
+                                  $dataAttributes = [
+                                      'data-location' => $patientRow['location_name'],
+                                      'data-physician' => $patientRow['physician_id'],
+                                      'data-age' => $patientRow['age'],
+                                      'data-sex' => $patientRow['gender'],
+                                      'data-address' => $patientRow['address'],
+                                      'data-contact' => $patientRow['contact'],
+                                      'data-dob' => $patientRow['dob'],
+                                      'data-height' => $patientRow['height'],
+                                      'data-bcg-scar' => $patientRow['bcg_scar'],
+                                      'data-occupation' => $patientRow['occupation'],
+                                      'data-phil-health-no' => $patientRow['phil_health_no'],
+                                      'data-contact-person' => $patientRow['contact_person'],
+                                      'data-contact-person-no' => $patientRow['contact_person_no']
+                                  ];
+                                  
+                                  $dataAttributesString = '';
+                                  foreach($dataAttributes as $key => $value) {
+                                      $dataAttributesString .= ' ' . $key . '="' . htmlspecialchars($value ?? '') . '"';
+                                  }
+                          ?>
+                                  <option value="<?php echo $patientRow['id']; ?>"<?php echo $dataAttributesString; ?> onclick="populatePatientData(this)">
+                                      <?php echo htmlspecialchars($patientRow['fullname']); ?>
+                                  </option>
+                          <?php 
+                              endforeach;
+                          } else {
+                              echo "<option>No patients found</option>";
+                          }
+                          ?>
+                        </select>
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Complete Address</label>
+                        <textarea class="form-control" name="address" rows="2"></textarea>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="row">
+                        <div class="col-6">
+                          <div class="form-group mb-2">
+                            <label>Date of Birth</label>
+                            <input type="date" class="form-control" name="dob">
+                          </div>
+                        </div>
+                        <div class="col-6">
+                          <div class="form-group mb-2">
+                            <label>Age</label>
+                            <input type="number" class="form-control" name="age">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-6">
+                          <div class="form-group mb-2">
+                            <label>Sex</label>
+                            <select class="form-control" name="sex">
+                              <option value="M">Male</option>
+                              <option value="F">Female</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="col-6">
+                          <div class="form-group mb-2">
+                            <label>Height (cm)</label>
+                            <input type="number" class="form-control" name="height">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row mt-2">
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>BCG Scar</label>
+                        <select class="form-control" name="bcg_scar">
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                          <option value="Doubtful">Doubtful</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Source of Patient</label>
+                        <select class="form-control" name="source_of_patient">
+                          <option value="Public Health Center">Public Health Center</option>
+                          <option value="Other Health Facility">Other Health Facility</option>
+                          <option value="Private Hospital/Clinics/Physicians/NGOs">Private
+                            Hospital/Clinics/Physicians/NGOs</option>
+                          <option value="Community">Community</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="fullname" class="form-label">Full name</label>
-                  <input type="text" class="form-control" id="fullname" name="fullname">
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header">Diagnostic Tests</div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Tuberculin Skin Test (TST)</label>
+                        <input type="text" class="form-control" name="tst_result">
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>CXR Findings</label>
+                        <textarea class="form-control" name="cxr_findings" rows="2"></textarea>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Bacteriological Status</label>
+                        <select name="bacteriological_status" class="form-control">
+                            <option>Select Bacteriological Status</option>
+                            <option value="confirmed">Bacteriologically Confirmed</option>
+                            <option value="clinically">Clinically Diagnosed</option>
+                        </select>
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Classification of TB Disease</label>
+                        <select name="tb_classification" class="form-control">
+                            <option>Select Classification of TB Disease</option>
+                            <option value="pulmonary">Pulmonary</option>
+                            <option value="extra_pulmonary">Extra Pulmonary</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row">
+                    <div class="col-md-12">
+                      <div class="form-group mb-2">
+                        <label>DSSM/XPERT MTB/RIF Results Record</label>
+                        <table class="table table-bordered">
+                          <thead>
+                            <tr>
+                              <th>Month</th>
+                              <th>Due Date</th>
+                              <th>Date Examined</th>
+                              <th>Result</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <?php for($i = 0; $i <= 7; $i++): ?>
+                            <tr>
+                              <td><?php echo $i; ?></td>
+                              <td><input type="date" class="form-control" name="dssm_due_date[]"></td>
+                              <td><input type="date" class="form-control" name="dssm_exam_date[]"></td>
+                              <td><input type="text" class="form-control" name="dssm_result[]"></td>
+                            </tr>
+                            <?php endfor; ?>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="age" class="form-label">Age</label>
-                  <input type="number" class="form-control" id="age" name="age">
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header">Clinical Examination</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-bordered">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Weight (kg)</th>
+                          <th>Unexplained Fever</th>
+                          <th>Cough/Wheezing</th>
+                          <th>Well Being</th>
+                          <th>Appetite</th>
+                          <th>PE Findings</th>
+                          <th>Side Effects</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php for($i = 0; $i < 3; $i++): ?>
+                        <tr>
+                          <td><input type="date" class="form-control" name="exam_date[]"></td>
+                          <td><input type="number" step="0.1" class="form-control" name="weight[]"></td>
+                          <td><input type="checkbox" name="fever[]"></td>
+                          <td><input type="checkbox" name="cough[]"></td>
+                          <td><input type="checkbox" name="wellbeing[]"></td>
+                          <td><input type="checkbox" name="appetite[]"></td>
+                          <td><input type="checkbox" name="pe_findings[]"></td>
+                          <td><input type="text" class="form-control" name="side_effects[]"></td>
+                        </tr>
+                        <?php endfor; ?>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="gender">Gender</label>
-                  <select class="form-control" id="gender" name="gender">
-                    <option>Choose a Gender</option>
-                    <option value="1">Male</option>
-                    <option value="2">Female</option>
-                  </select>
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header">Drugs: Dosages and Preparations</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-bordered">
+                      <thead>
+                        <tr>
+                          <th>Drug</th>
+                          <?php for($i = 1; $i <= 12; $i++): ?>
+                          <th>Month <?php echo $i; ?></th>
+                          <?php endfor; ?>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Isoniazid [H] 10mg/kg (200mg/5ml)</td>
+                          <?php for($i = 1; $i <= 12; $i++): ?>
+                          <td><input type="number" step="0.1" class="form-control"
+                              name="isoniazid_month_<?php echo $i; ?>"></td>
+                          <?php endfor; ?>
+                        </tr>
+                        <!-- Add similar rows for other drugs -->
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="contact" class="form-label">Contact Number</label>
-                  <input type="number" class="form-control" id="contact" name="contact">
+              </div>
+
+              <!-- Other Patient Details Section -->
+              <div class="card mb-3">
+                <div class="card-header">Other Patient Details</div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Occupation</label>
+                        <input type="text" class="form-control" name="occupation">
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>PhilHealth Number</label>
+                        <input type="text" class="form-control" name="phil_health_no">
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Contact Person</label>
+                        <input type="text" class="form-control" name="contact_person">
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Contact Number</label>
+                        <input type="text" class="form-control" name="contact_number">
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="address" class="form-label">Address</label>
-                  <input type="text" class="form-control" id="address" name="address">
+              </div>
+
+              <!-- Household Members Section -->
+              <div class="card mb-3">
+                <div class="card-header">Household Members</div>
+                <div class="card-body">
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>First Name</th>
+                        <th>Age</th>
+                        <th>Screened</th>
+                        <th><button type="button" class="btn btn-sm btn-primary" onclick="addHouseholdMember()">Add
+                            Member</button></th>
+                      </tr>
+                    </thead>
+                    <tbody id="householdMembersTable">
+                      <tr>
+                        <td><input type="text" class="form-control" name="household_name[]"></td>
+                        <td><input type="number" class="form-control" name="household_age[]"></td>
+                        <td><input type="checkbox" name="household_screened[]"></td>
+                        <td><button type="button" class="btn btn-sm btn-danger"
+                            onclick="this.parentElement.parentElement.remove()">Remove</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-                <div class="form-group">
-                  <label for="physician">Physician</label>
-                  <select class="form-control" id="physician" name="physician">
-                    <option>Choose a Physician</option>
-                    <?php foreach($physicians as $physician): ?>
-                      <option value="<?php echo $physician['id']; ?>"><?php echo $physician['first_name']. " ". $physician['last_name']; ?></option>
-                    <?php endforeach; ?>
-                  </select>
+              </div>
+
+              <!-- History of Anti-TB Drug Intake Section -->
+              <div class="card mb-3">
+                <div class="card-header">History of Anti-TB Drug Intake</div>
+                <div class="card-body">
+                  <div class="row align-items-center">
+                    <div class="col-md-3">
+                      <div class="form-group mb-0">
+                        <label class="me-2">History:</label>
+                        <select class="form-control" name="drug_history">
+                          <option>Select History of Anti-TB Drug Intake</option>
+                          <option value="No">No</option>
+                          <option value="Yes">Yes</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group mb-0">
+                        <label class="me-2">Duration:</label>
+                        <select class="form-control" name="drug_duration">
+                          <option>Select Duration of Anti-TB Drug Intake</option>
+                          <option value="less than 1 mo">Less than 1 month</option>
+                          <option value="1 mo or more">1 month or more</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group mb-0 d-flex align-items-center">
+                        <label class="me-3">Drugs Taken:</label>
+                        <div class="form-check form-check-inline">
+                          <input type="checkbox" class="form-check-input" name="drugs_taken[]" value="H">
+                          <label class="form-check-label">H</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input type="checkbox" class="form-check-input" name="drugs_taken[]" value="R">
+                          <label class="form-check-label">R</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input type="checkbox" class="form-check-input" name="drugs_taken[]" value="Z">
+                          <label class="form-check-label">Z</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input type="checkbox" class="form-check-input" name="drugs_taken[]" value="E">
+                          <label class="form-check-label">E</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input type="checkbox" class="form-check-input" name="drugs_taken[]" value="S">
+                          <label class="form-check-label">S</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              <!-- Add to Diagnostic Tests Section -->
+              <div class="form-group mb-2">
+                <label>Other Exam</label>
+                <input type="text" class="form-control" name="other_exam">
+                <input type="date" class="form-control mt-2" name="other_exam_date">
+              </div>
+
+              <div class="form-group mb-2">
+                <label>TBDC</label>
+                <input type="text" class="form-control" name="tbdc">
+              </div>
+
+              <!-- Treatment Details Section -->
+              <div class="card mb-3">
+                <div class="card-header">Treatment Details</div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Diagnosis</label>
+                        <select name="diagnosis" class="form-control">
+                          <option>Select Diagnosis</option>
+                          <option value="TB DISEASE">TB DISEASE</option>
+                          <option value="TB INFECTION">TB INFECTION</option>
+                          <option value="TB EXPOSURE">TB EXPOSURE</option>
+                        </select>
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Registration Group</label>
+                        <select name="registration_group" class="form-control">
+                          <option value="New">New</option>
+                          <option value="Relapse">Relapse</option>
+                          <option value="Treatment after Failure">Treatment after Failure</option>
+                          <option value="TALF">TALF</option>
+                          <option value="PTOU">PTOU</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group mb-2">
+                        <label>Treatment Regimen</label>
+                        <select class="form-control" name="treatment_regimen">
+                          <option>Select Treatment Regimen</option>
+                          <option value="2HRZE/4HR">2HRZE/4HR</option>
+                          <option value="2HRZE/10HR">2HRZE/10HR</option>
+                          <option value="2HRZE/6HE">2HRZE/6HE</option>
+                        </select>
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Treatment Started</label>
+                        <input type="date" class="form-control" name="treatment_started_date">
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Treatment Outcome</label>
+                        <select name="treatment_outcome" class="form-control">
+                          <option value="CURED">CURED</option>
+                          <option value="TREATMENT COMPLETED">TREATMENT COMPLETED</option>
+                          <option value="TREATMENT FAILED">TREATMENT FAILED</option>
+                          <option value="DIED">DIED</option>
+                          <option value="LOST TO FOLLOW UP">LOST TO FOLLOW UP</option>
+                          <option value="NOT EVALUATED">NOT EVALUATED</option>
+                        </select>
+                      </div>
+                      <div class="form-group mb-2">
+                        <label>Treatment Outcome Date</label>
+                        <input type="date" class="form-control" name="treatment_outcome_date">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" id="form-button">Add Laboratory</button>
+              <button type="submit" class="btn btn-primary">Save Record</button>
             </div>
           </form>
         </div>
@@ -216,7 +986,7 @@ $physicians = $conn->query($physicianssql);
       modal.show()
     })
 
-    function editUser(id, username, first_name, last_name, role){
+    function editUser(id, username, first_name, last_name, role) {
       var modal = new bootstrap.Modal(document.getElementById('addUserModal'))
       document.getElementById('id').value = id;
       document.getElementById('username').value = username;
@@ -235,7 +1005,159 @@ $physicians = $conn->query($physicianssql);
       }
       Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
     }
+
+    function addHouseholdMember() {
+      const tbody = document.getElementById('householdMembersTable');
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input type="text" class="form-control" name="household_name[]"></td>
+        <td><input type="number" class="form-control" name="household_age[]"></td>
+        <td><input type="checkbox" name="household_screened[]"></td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">Remove</button></td>
+      `;
+      tbody.appendChild(row);
+    }
+
+    function openLabModal(patientId, patientName) {
+        // First, select the patient in the dropdown
+        const patientSelect = document.getElementById('patient_select');
+        patientSelect.value = patientId;
+        
+        // Manually trigger data population
+        const selectedOption = patientSelect.options[patientSelect.selectedIndex];
+        populatePatientData(selectedOption);
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('addLaboratoryModal'));
+        modal.show();
+    }
+
+    function viewLabResults(patientId) {
+      // You can either show results in a new modal or redirect to a details page
+      window.location.href = `view_lab_results.php?patient_id=${patientId}`;
+    }
+
+    function showLoading() {
+        const form = document.querySelector('#addLaboratoryModal form');
+        if (form) {
+            form.style.opacity = '0.5';
+            form.style.pointerEvents = 'none';
+        }
+    }
+
+    function hideLoading() {
+        const form = document.querySelector('#addLaboratoryModal form');
+        if (form) {
+            form.style.opacity = '1';
+            form.style.pointerEvents = 'auto';
+        }
+    }
+
+    function populatePatientData(selectedOption) {
+        console.log('Populating data for patient:', selectedOption.value);
+        console.log('Patient data:', selectedOption.dataset);
+        
+        if (selectedOption && selectedOption.value) {
+            try {
+                // Basic Information
+                const fields = {
+                    'textarea[name="address"]': 'address',
+                    'input[name="age"]': 'age',
+                    'select[name="sex"]': { attr: 'sex', transform: v => v === '1' ? 'M' : 'F' },
+                    'input[name="contact"]': 'contact',
+                    'input[name="dob"]': 'dob',
+                    'input[name="height"]': 'height',
+                    'select[name="bcg_scar"]': 'bcgScar',
+                    'input[name="occupation"]': 'occupation',
+                    'input[name="phil_health_no"]': 'philHealthNo',
+                    'input[name="contact_person"]': 'contactPerson',
+                    'input[name="contact_person_no"]': 'contactPersonNo',
+                    'input[name="facility_name"]': 'location'
+                };
+
+                // Populate each field
+                Object.entries(fields).forEach(([selector, dataKey]) => {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        if (typeof dataKey === 'object') {
+                            // Handle transformed values
+                            element.value = dataKey.transform(selectedOption.dataset[dataKey.attr]) || '';
+                        } else {
+                            element.value = selectedOption.dataset[dataKey] || '';
+                        }
+                    }
+                });
+
+                // Set current date for date fields if empty
+                const currentDate = new Date().toISOString().split('T')[0];
+                const dateFields = ['date_opened', 'treatment_started_date'];
+                dateFields.forEach(fieldName => {
+                    const dateField = document.querySelector(`input[name="${fieldName}"]`);
+                    if (dateField && !dateField.value) {
+                        dateField.value = currentDate;
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error populating patient data:', error);
+            }
+        }
+    }
+
+    // Add both event listeners for the patient select
+    document.addEventListener('DOMContentLoaded', function() {
+        const patientSelect = document.getElementById('patient_select');
+        if (patientSelect) {
+            // Handle change event
+            patientSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                populatePatientData(selectedOption);
+            });
+
+            // Handle focus event (backup in case change doesn't fire)
+            patientSelect.addEventListener('focus', function() {
+                if (this.value) {
+                    const selectedOption = this.options[this.selectedIndex];
+                    populatePatientData(selectedOption);
+                }
+            });
+        }
+    });
+
+    function viewTreatmentCard(id) {
+        // Show loading state
+        const modal = new bootstrap.Modal(document.getElementById('viewTreatmentCardModal'));
+        const modalBody = document.querySelector('#viewTreatmentCardModal .modal-body');
+        modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        modal.show();
+
+        // Fetch the data
+        fetch(`get_treatment_card.php?id=${id}`)
+            .then(response => response.text())
+            .then(html => {
+                modalBody.innerHTML = html;
+            })
+            .catch(error => {
+                modalBody.innerHTML = `<div class="alert alert-danger">Error loading data: ${error.message}</div>`;
+            });
+    }
   </script>
+  <div class="modal fade" id="viewTreatmentCardModal" tabindex="-1" aria-labelledby="viewTreatmentCardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" style="max-width: 95%; z-index: 9999;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="viewTreatmentCardModalLabel">View TB Treatment Card</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Content will be loaded dynamically -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 
 </html>

@@ -19,6 +19,68 @@
 CREATE DATABASE IF NOT EXISTS `tbdots` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
 USE `tbdots`;
 
+-- Dumping structure for table tbdots.clinical_examinations
+CREATE TABLE IF NOT EXISTS `clinical_examinations` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `treatment_card_id` int NOT NULL,
+  `examination_date` date NOT NULL,
+  `weight` decimal(5,2) DEFAULT NULL,
+  `unexplained_fever` tinyint(1) DEFAULT NULL,
+  `unexplained_cough` tinyint(1) DEFAULT NULL,
+  `unimproved_wellbeing` tinyint(1) DEFAULT NULL,
+  `poor_appetite` tinyint(1) DEFAULT NULL,
+  `positive_pe_findings` tinyint(1) DEFAULT NULL,
+  `side_effects` text,
+  PRIMARY KEY (`id`),
+  KEY `FK_examination_treatment` (`treatment_card_id`),
+  CONSTRAINT `FK_examination_treatment` FOREIGN KEY (`treatment_card_id`) REFERENCES `tb_treatment_cards` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.clinical_examinations: ~0 rows (approximately)
+
+-- Dumping structure for table tbdots.drug_histories
+CREATE TABLE IF NOT EXISTS `drug_histories` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `treatment_card_id` int NOT NULL,
+  `has_history` tinyint(1) DEFAULT '0',
+  `duration` enum('less than 1 mo','1 mo or more') DEFAULT NULL,
+  `drugs_taken` set('H','R','Z','E','S') DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_history_treatment` (`treatment_card_id`),
+  CONSTRAINT `FK_history_treatment` FOREIGN KEY (`treatment_card_id`) REFERENCES `tb_treatment_cards` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.drug_histories: ~0 rows (approximately)
+
+-- Dumping structure for table tbdots.drug_prescriptions
+CREATE TABLE IF NOT EXISTS `drug_prescriptions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `treatment_card_id` int NOT NULL,
+  `drug_type` enum('H','R','Z','E','S') NOT NULL,
+  `month_number` int NOT NULL,
+  `dosage` decimal(5,2) NOT NULL,
+  `unit` enum('ml','tab') NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_prescription_treatment` (`treatment_card_id`),
+  CONSTRAINT `FK_prescription_treatment` FOREIGN KEY (`treatment_card_id`) REFERENCES `tb_treatment_cards` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.drug_prescriptions: ~0 rows (approximately)
+
+-- Dumping structure for table tbdots.household_members
+CREATE TABLE IF NOT EXISTS `household_members` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `treatment_card_id` int NOT NULL,
+  `first_name` varchar(100) NOT NULL,
+  `age` int DEFAULT NULL,
+  `screened` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `FK_household_treatment` (`treatment_card_id`),
+  CONSTRAINT `FK_household_treatment` FOREIGN KEY (`treatment_card_id`) REFERENCES `tb_treatment_cards` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.household_members: ~0 rows (approximately)
+
 -- Dumping structure for table tbdots.lab_results
 CREATE TABLE IF NOT EXISTS `lab_results` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -87,16 +149,27 @@ CREATE TABLE IF NOT EXISTS `patients` (
   `lab_results_id` int DEFAULT NULL,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `height` int DEFAULT NULL,
+  `dob` date DEFAULT NULL,
+  `bcg_scar` enum('Yes','No','Doubtful') DEFAULT NULL,
+  `occupation` varchar(100) DEFAULT NULL,
+  `phil_health_no` varchar(50) DEFAULT NULL,
+  `contact_person` varchar(100) DEFAULT NULL,
+  `contact_person_no` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_patients_location` (`location_id`),
   KEY `FK_patients_lab_results` (`lab_results_id`),
   KEY `FK_patients_users` (`physician_id`),
+  KEY `idx_fullname` (`fullname`(50)),
+  KEY `idx_contact` (`contact`),
   CONSTRAINT `FK_patients_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`),
   CONSTRAINT `FK_patients_location` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`),
   CONSTRAINT `FK_patients_users` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.patients: ~0 rows (approximately)
+-- Dumping data for table tbdots.patients: ~1 rows (approximately)
+INSERT INTO `patients` (`id`, `fullname`, `age`, `gender`, `contact`, `address`, `physician_id`, `location_id`, `lab_results_id`, `updated_at`, `created_at`, `height`, `dob`, `bcg_scar`, `occupation`, `phil_health_no`, `contact_person`, `contact_person_no`) VALUES
+	(4, 'Lester bon Biono', 25, 1, '636565113', 'Brgy. San Teodoro, Binalbagan, Negros Occidental', 15, 1, NULL, '2024-11-10 17:34:52', '2024-11-10 17:34:52', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- Dumping structure for table tbdots.roles
 CREATE TABLE IF NOT EXISTS `roles` (
@@ -110,10 +183,41 @@ CREATE TABLE IF NOT EXISTS `roles` (
 
 -- Dumping data for table tbdots.roles: ~4 rows (approximately)
 INSERT INTO `roles` (`id`, `description`, `module`, `updated_at`, `created_at`) VALUES
-	(1, 'Super Admin', '[1,2,3,4,5,6,7,8,9,10,11,12]', '2024-05-26 07:48:21', '2024-05-26 07:20:56'),
-	(2, 'Admin', '[1,2,3,4,5,6,7,8,9,10,11,12]', '2024-05-26 07:48:28', '2024-05-26 07:21:42'),
+	(1, 'Super Admin', '[1,2,3,4,5,6,7,8,9,10,11,12,13,14]', '2024-05-29 08:29:47', '2024-05-26 07:20:56'),
+	(2, 'Admin', '[1,2,3,4,5,6,7,8,9,10,11,12,13,14]', '2024-05-29 08:29:56', '2024-05-26 07:21:42'),
 	(3, 'Physician', '[5,9,10,11,12]', '2024-05-26 08:01:46', '2024-05-26 07:22:14'),
 	(4, 'Regular', '[5,9,10,11,12]', '2024-05-26 08:01:50', '2024-05-26 07:23:23');
+
+-- Dumping structure for table tbdots.tb_treatment_cards
+CREATE TABLE IF NOT EXISTS `tb_treatment_cards` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `case_number` varchar(50) NOT NULL,
+  `date_opened` date DEFAULT NULL,
+  `region_province` varchar(100) DEFAULT NULL,
+  `facility_name` varchar(100) DEFAULT NULL,
+  `patient_id` int NOT NULL,
+  `physician_id` int NOT NULL,
+  `source_of_patient` enum('Public Health Center','Other Health Facility','Private Hospital/Clinics/Physicians/NGOs','Community') DEFAULT NULL,
+  `bacteriological_status` enum('Bacteriologically Confirmed','Clinically Diagnosed') DEFAULT NULL,
+  `tb_classification` enum('Pulmonary','Extra Pulmonary') DEFAULT NULL,
+  `diagnosis` enum('TB DISEASE','TB INFECTION','TB EXPOSURE') DEFAULT NULL,
+  `registration_group` enum('New','Relapse','Treatment after Failure','TALF','PTOU','Other') DEFAULT NULL,
+  `treatment_regimen` varchar(50) DEFAULT NULL,
+  `treatment_started_date` date DEFAULT NULL,
+  `treatment_outcome` enum('CURED','TREATMENT COMPLETED','TREATMENT FAILED','DIED','LOST TO FOLLOW UP','NOT EVALUATED') DEFAULT NULL,
+  `treatment_outcome_date` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `FK_treatment_patient` (`patient_id`),
+  KEY `FK_treatment_physician` (`physician_id`),
+  CONSTRAINT `FK_treatment_patient` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`),
+  CONSTRAINT `FK_treatment_physician` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.tb_treatment_cards: ~1 rows (approximately)
+INSERT INTO `tb_treatment_cards` (`id`, `case_number`, `date_opened`, `region_province`, `facility_name`, `patient_id`, `physician_id`, `source_of_patient`, `bacteriological_status`, `tb_classification`, `diagnosis`, `registration_group`, `treatment_regimen`, `treatment_started_date`, `treatment_outcome`, `treatment_outcome_date`, `created_at`, `updated_at`) VALUES
+	(1, '21312', '2024-11-05', '', NULL, 4, 14, 'Public Health Center', NULL, NULL, NULL, 'New', 'Select Treatment Regimen', NULL, 'CURED', NULL, '2024-11-12 06:17:33', '2024-11-12 06:17:33');
 
 -- Dumping structure for table tbdots.test_lists
 CREATE TABLE IF NOT EXISTS `test_lists` (
@@ -124,7 +228,7 @@ CREATE TABLE IF NOT EXISTS `test_lists` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.test_lists: ~6 rows (approximately)
+-- Dumping data for table tbdots.test_lists: ~7 rows (approximately)
 INSERT INTO `test_lists` (`id`, `name`, `updated_at`, `created_at`) VALUES
 	(1, 'Xpert MTB / RIF', '2024-05-24 09:14:07', '2024-05-24 09:14:07'),
 	(2, 'Smear Microscopy', '2024-05-24 09:14:22', '2024-05-24 09:14:22'),
