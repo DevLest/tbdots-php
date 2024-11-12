@@ -18,7 +18,7 @@ $thisWeekPatients = $conn->query("
 
 $totalConfined = $conn->query("
     SELECT COUNT(*) as count 
-    FROM tb_treatment_cards 
+    FROM lab_results 
     WHERE treatment_outcome IS NULL
 ")->fetch_assoc();
 
@@ -35,14 +35,17 @@ $totalAnnualPatients = $conn->query("
 ")->fetch_assoc();
 
 // Get recent patients for the table
-$recentPatients = $conn->query("
-    SELECT p.*, l.location, t.treatment_outcome
+$recentPatientsSql = "
+    SELECT p.*, 
+        m.location as municipality_name,
+        b.name as barangay_name 
     FROM patients p
-    LEFT JOIN locations l ON p.location_id = l.id 
-    LEFT JOIN tb_treatment_cards t ON p.id = t.patient_id
-    ORDER BY p.created_at DESC
-    LIMIT 5
-");
+    LEFT JOIN municipalities m ON p.location_id = m.id
+    LEFT JOIN barangays b ON b.municipality_id = m.id
+    ORDER BY p.created_at DESC 
+    LIMIT 10";
+
+$recentPatients = $conn->query($recentPatientsSql);
 
 // This Week's Patients comparison
 $lastWeekPatients = $conn->query("
@@ -59,7 +62,7 @@ $weeklyChange = $lastWeekPatients['count'] > 0
 // Number of Confined comparison
 $lastMonthConfined = $conn->query("
     SELECT COUNT(*) as count 
-    FROM tb_treatment_cards 
+    FROM lab_results 
     WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL 1 MONTH)
     AND created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)
     AND treatment_outcome IS NULL
@@ -99,7 +102,7 @@ $healedPatients = $conn->query("
         DATE_FORMAT(treatment_outcome_date, '%b') as month,
         DATE_FORMAT(treatment_outcome_date, '%Y-%m') as month_year,
         COUNT(*) as count
-    FROM tb_treatment_cards
+    FROM lab_results
     WHERE treatment_outcome = 'CURED'
     AND treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
     GROUP BY DATE_FORMAT(treatment_outcome_date, '%Y-%m'), DATE_FORMAT(treatment_outcome_date, '%b')
@@ -337,7 +340,7 @@ $healedData = json_encode(array_values($months));
                         </td>
                         <td>
                             <div class="d-flex flex-column justify-content-center">
-                                <h6 class="mb-0 text-sm"><?php echo htmlspecialchars($patient['address']); ?></h6>
+                                <h6 class="mb-0 text-sm"><?php echo htmlspecialchars($patient['barangay_name']) . ', ' . htmlspecialchars($patient['municipality_name']); ?></h6>
                             </div>
                         </td>
                         <td class="align-middle text-center text-sm">

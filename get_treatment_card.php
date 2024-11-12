@@ -24,14 +24,10 @@ $sql = "SELECT
     p.contact_person,
     p.contact_person_no,
     u.first_name as physician_name,
-    u.last_name as physician_lastname,
-    dh.has_history,
-    dh.duration as drug_duration,
-    dh.drugs_taken
-FROM tb_treatment_cards t
+    u.last_name as physician_lastname
+FROM lab_results t
 JOIN patients p ON t.patient_id = p.id
 JOIN users u ON t.physician_id = u.id
-LEFT JOIN drug_histories dh ON dh.treatment_card_id = t.id
 WHERE t.id = ?";
 
 $stmt = $conn->prepare($sql);
@@ -43,13 +39,6 @@ $data = $result->fetch_assoc();
 if (!$data) {
     exit('Record not found');
 }
-
-// Fetch clinical examinations
-$examSql = "SELECT * FROM clinical_examinations WHERE treatment_card_id = ? ORDER BY examination_date";
-$examStmt = $conn->prepare($examSql);
-$examStmt->bind_param('i', $id);
-$examStmt->execute();
-$examinations = $examStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Fetch household members
 $householdSql = "SELECT * FROM household_members WHERE treatment_card_id = ?";
@@ -176,44 +165,6 @@ $household = $householdStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         </div>
     </div>
 </div>
-
-<?php if (!empty($examinations)): ?>
-<div class="card mb-3">
-    <div class="card-header">Clinical Examinations</div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Weight</th>
-                        <th>Fever</th>
-                        <th>Cough</th>
-                        <th>Well-being</th>
-                        <th>Appetite</th>
-                        <th>PE Findings</th>
-                        <th>Side Effects</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($examinations as $exam): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($exam['examination_date']) ?></td>
-                        <td><?= htmlspecialchars($exam['weight']) ?></td>
-                        <td><?= $exam['unexplained_fever'] ? 'Yes' : 'No' ?></td>
-                        <td><?= $exam['unexplained_cough'] ? 'Yes' : 'No' ?></td>
-                        <td><?= $exam['unimproved_wellbeing'] ? 'Yes' : 'No' ?></td>
-                        <td><?= $exam['poor_appetite'] ? 'Yes' : 'No' ?></td>
-                        <td><?= $exam['positive_pe_findings'] ? 'Yes' : 'No' ?></td>
-                        <td><?= htmlspecialchars($exam['side_effects']) ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
 
 <?php if (!empty($household)): ?>
 <div class="card mb-3">

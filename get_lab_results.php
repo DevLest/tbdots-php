@@ -11,7 +11,7 @@ if (isset($_GET['patient_id'])) {
               t.treatment_regimen,
               t.treatment_outcome,
               DATE_FORMAT(t.created_at, '%Y-%m-%d') as created_at
-            FROM tb_treatment_cards t
+            FROM lab_results t
             WHERE t.patient_id = ?
             ORDER BY t.created_at DESC";
             

@@ -114,10 +114,21 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   }
 }
 
-$userssql = "SELECT * FROM patients";
+$userssql = "SELECT p.*, 
+    m.location as municipality_name,
+    b.name as barangay_name 
+    FROM patients p
+    LEFT JOIN locations l ON p.location_id = l.id
+    LEFT JOIN municipalities m ON l.municipality_id = m.id
+    LEFT JOIN barangays b ON l.barangay_id = b.id";
 $users = $conn->query($userssql);
 
-$locationsql = "SELECT * FROM locations";
+$locationsql = "SELECT l.*, 
+    m.location as municipality_name,
+    b.name as barangay_name 
+    FROM locations l
+    LEFT JOIN municipalities m ON l.municipality_id = m.id 
+    LEFT JOIN barangays b ON l.barangay_id = b.id";
 $locations = $conn->query($locationsql);
 
 $physicianssql = "SELECT * FROM users WHERE role = 3";
@@ -342,7 +353,10 @@ $physicians = $conn->query($physicianssql);
                             echo "
                               <tr onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' style='cursor: pointer;'>
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["fullname"]."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["address"]."</span></td>
+                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".
+                                  ($row["barangay_name"] ? "Brgy. ".$row["barangay_name"].", " : "") .
+                                  ($row["municipality_name"] ? $row["municipality_name"] : $row["address"]).
+                                "</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".($row["gender"] == 1 ? "Male" : "Female")."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["age"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
@@ -389,7 +403,11 @@ $physicians = $conn->query($physicianssql);
                     <select class="form-control" id="location" name="location" required>
                       <option value="">Choose a Location</option>
                       <?php foreach($locations as $location): ?>
-                        <option value="<?php echo $location['id']; ?>"><?php echo $location['location']; ?></option>
+                        <option value="<?php echo $location['id']; ?>">
+                          <?php 
+                            echo "Brgy. " . $location['barangay_name'] . ", " . $location['municipality_name'];
+                          ?>
+                        </option>
                       <?php endforeach; ?>
                     </select>
                   </div>

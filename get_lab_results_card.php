@@ -24,14 +24,10 @@ $sql = "SELECT
     p.contact_person,
     p.contact_person_no,
     u.first_name as physician_name,
-    u.last_name as physician_lastname,
-    dh.has_history,
-    dh.duration as drug_duration,
-    dh.drugs_taken
-FROM tb_treatment_cards t
+    u.last_name as physician_lastname
+FROM lab_results t
 JOIN patients p ON t.patient_id = p.id
 JOIN users u ON t.physician_id = u.id
-LEFT JOIN drug_histories dh ON dh.treatment_card_id = t.id
 WHERE t.patient_id = ?
 ORDER BY t.created_at DESC";
 
@@ -49,13 +45,6 @@ $treatmentCards = $result->fetch_all(MYSQLI_ASSOC);
 
 // Output each treatment card
 foreach ($treatmentCards as $data) {
-    // Fetch clinical examinations for this treatment card
-    $examSql = "SELECT * FROM clinical_examinations WHERE treatment_card_id = ? ORDER BY examination_date";
-    $examStmt = $conn->prepare($examSql);
-    $examStmt->bind_param('i', $data['id']);
-    $examStmt->execute();
-    $examinations = $examStmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
     // Fetch household members for this treatment card
     $householdSql = "SELECT * FROM household_members WHERE treatment_card_id = ?";
     $householdStmt = $conn->prepare($householdSql);
@@ -98,39 +87,34 @@ foreach ($treatmentCards as $data) {
                 </div>
             </div>
 
-            <!-- Clinical Examinations -->
-            <?php if (!empty($examinations)): ?>
-            <h6 class="mt-4 mb-3">Clinical Examinations</h6>
-            <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Weight</th>
-                            <th>Symptoms</th>
-                            <th>Side Effects</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($examinations as $exam): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($exam['examination_date']) ?></td>
-                            <td><?= htmlspecialchars($exam['weight']) ?> kg</td>
-                            <td>
-                                <?php
-                                $symptoms = [];
-                                if ($exam['unexplained_fever']) $symptoms[] = 'Fever';
-                                if ($exam['unexplained_cough']) $symptoms[] = 'Cough';
-                                if ($exam['unimproved_wellbeing']) $symptoms[] = 'Poor well-being';
-                                if ($exam['poor_appetite']) $symptoms[] = 'Poor appetite';
-                                echo implode(', ', $symptoms) ?: 'None';
-                                ?>
-                            </td>
-                            <td><?= htmlspecialchars($exam['side_effects'] ?: 'None') ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <!-- Household Members -->
+            <?php if (!empty($household)): ?>
+            <div class="card mb-3">
+                <div class="card-header">
+                    Household Members
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Relationship</th>
+                                    <th>Contact</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($household as $member): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($member['name']) ?></td>
+                                    <td><?= htmlspecialchars($member['relationship']) ?></td>
+                                    <td><?= htmlspecialchars($member['contact']) ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             <?php endif; ?>
         </div>
