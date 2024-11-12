@@ -19,6 +19,27 @@
 CREATE DATABASE IF NOT EXISTS `tbdots` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
 USE `tbdots`;
 
+-- Dumping structure for table tbdots.activity_logs
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `action` enum('CREATE','UPDATE','DELETE') NOT NULL,
+  `table_name` varchar(50) NOT NULL,
+  `record_id` int NOT NULL,
+  `details` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `FK_logs_user` (`user_id`),
+  CONSTRAINT `FK_logs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table tbdots.activity_logs: ~0 rows (approximately)
+INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, `details`, `created_at`) VALUES
+	(1, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:05:46'),
+	(2, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:06:19'),
+	(3, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:16:43'),
+	(4, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:16:51');
+
 -- Dumping structure for table tbdots.clinical_examinations
 CREATE TABLE IF NOT EXISTS `clinical_examinations` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -119,7 +140,7 @@ CREATE TABLE IF NOT EXISTS `modules` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.modules: ~14 rows (approximately)
+-- Dumping data for table tbdots.modules: ~12 rows (approximately)
 INSERT INTO `modules` (`id`, `module`) VALUES
 	(1, 'user_index'),
 	(2, 'user_add'),
@@ -169,7 +190,7 @@ CREATE TABLE IF NOT EXISTS `patients` (
 
 -- Dumping data for table tbdots.patients: ~1 rows (approximately)
 INSERT INTO `patients` (`id`, `fullname`, `age`, `gender`, `contact`, `address`, `physician_id`, `location_id`, `lab_results_id`, `updated_at`, `created_at`, `height`, `dob`, `bcg_scar`, `occupation`, `phil_health_no`, `contact_person`, `contact_person_no`) VALUES
-	(4, 'Lester bon Biono', 25, 1, '636565113', 'Brgy. San Teodoro, Binalbagan, Negros Occidental', 15, 1, NULL, '2024-11-10 17:34:52', '2024-11-10 17:34:52', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	(4, 'Lester bon Biono', 25, 1, '636565113', 'Brgy. San Teodoro, Binalbagan, Negros Occidental', 15, 1, NULL, '2024-11-12 08:16:51', '2024-11-10 17:34:52', 21312, '2024-11-22', NULL, 'Farmer', '12312', '12sdas', '164654');
 
 -- Dumping structure for table tbdots.roles
 CREATE TABLE IF NOT EXISTS `roles` (
@@ -228,7 +249,7 @@ CREATE TABLE IF NOT EXISTS `test_lists` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.test_lists: ~7 rows (approximately)
+-- Dumping data for table tbdots.test_lists: ~6 rows (approximately)
 INSERT INTO `test_lists` (`id`, `name`, `updated_at`, `created_at`) VALUES
 	(1, 'Xpert MTB / RIF', '2024-05-24 09:14:07', '2024-05-24 09:14:07'),
 	(2, 'Smear Microscopy', '2024-05-24 09:14:22', '2024-05-24 09:14:22'),
