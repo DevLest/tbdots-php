@@ -9,8 +9,15 @@ if(!isset($_SESSION['user_id'])) {
 require_once "connection/db.php";
 include_once('head.php');
 
-$sql = "SELECT * FROM users";
-$users = $conn->query($sql);
+// Fetch user data
+$user_id = $_SESSION['user_id'];
+$sql = "SELECT first_name, last_name, role FROM users WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+
 ?>
 
 <body class="g-sidenav-show bg-gray-200">
@@ -35,10 +42,10 @@ $users = $conn->query($sql);
           <div class="col-auto my-auto">
             <div class="h-100">
               <h5 class="mb-1">
-                Richard Davis
+                <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
               </h5>
               <p class="mb-0 font-weight-normal text-sm">
-                CEO / Co-Founder
+                Role ID: <?php echo htmlspecialchars($user['role']); ?>
               </p>
             </div>
           </div>

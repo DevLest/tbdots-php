@@ -33,13 +33,21 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
   CONSTRAINT `FK_logs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.activity_logs: ~0 rows (approximately)
+-- Dumping data for table tbdots.activity_logs: ~13 rows (approximately)
 INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, `details`, `created_at`) VALUES
 	(1, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:05:46'),
 	(2, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:06:19'),
 	(3, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:16:43'),
 	(4, 14, 'UPDATE', 'patients', 4, 'Updated patient: Lester bon Biono', '2024-11-12 08:16:51'),
-	(5, 14, 'DELETE', 'products', 2, 'Deleted product', '2024-11-12 20:43:23');
+	(5, 14, 'DELETE', 'products', 2, 'Deleted product', '2024-11-12 20:43:23'),
+	(6, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:40:42'),
+	(7, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:40:50'),
+	(8, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:46:05'),
+	(9, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:47:03'),
+	(10, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:47:11'),
+	(11, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:47:28'),
+	(12, 14, 'UPDATE', 'lab_results', 2, 'Updated laboratory record #2', '2024-11-12 21:47:44'),
+	(13, 14, 'UPDATE', 'roles', 2, 'Updated role permissions', '2024-11-12 23:08:34');
 
 -- Dumping structure for table tbdots.barangays
 CREATE TABLE IF NOT EXISTS `barangays` (
@@ -53,7 +61,7 @@ CREATE TABLE IF NOT EXISTS `barangays` (
   CONSTRAINT `barangays_ibfk_1` FOREIGN KEY (`municipality_id`) REFERENCES `municipalities` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=118 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.barangays: ~0 rows (approximately)
+-- Dumping data for table tbdots.barangays: ~117 rows (approximately)
 INSERT INTO `barangays` (`id`, `name`, `municipality_id`, `created_at`, `updated_at`) VALUES
 	(1, 'Anahaw', 1, '2024-11-12 20:56:49', '2024-11-12 20:56:49'),
 	(2, 'Aranda', 1, '2024-11-12 20:56:49', '2024-11-12 20:56:49'),
@@ -191,7 +199,6 @@ CREATE TABLE IF NOT EXISTS `clinical_examinations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.clinical_examinations: ~0 rows (approximately)
-
 -- Dumping structure for table tbdots.drug_histories
 CREATE TABLE IF NOT EXISTS `drug_histories` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -205,7 +212,6 @@ CREATE TABLE IF NOT EXISTS `drug_histories` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.drug_histories: ~0 rows (approximately)
-
 -- Dumping structure for table tbdots.drug_prescriptions
 CREATE TABLE IF NOT EXISTS `drug_prescriptions` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -220,7 +226,6 @@ CREATE TABLE IF NOT EXISTS `drug_prescriptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.drug_prescriptions: ~0 rows (approximately)
-
 -- Dumping structure for table tbdots.household_members
 CREATE TABLE IF NOT EXISTS `household_members` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -248,7 +253,7 @@ CREATE TABLE IF NOT EXISTS `inventory` (
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.inventory: ~0 rows (approximately)
+-- Dumping data for table tbdots.inventory: ~1 rows (approximately)
 INSERT INTO `inventory` (`id`, `product_id`, `quantity`, `expiration_date`, `batch_number`, `created_at`) VALUES
 	(1, 1, 23, '2024-11-14', '20241112-001', '2024-11-12 20:43:33');
 
@@ -279,9 +284,10 @@ CREATE TABLE IF NOT EXISTS `lab_results` (
   CONSTRAINT `FK_treatment_physician` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.lab_results: ~0 rows (approximately)
+-- Dumping data for table tbdots.lab_results: ~2 rows (approximately)
 INSERT INTO `lab_results` (`id`, `case_number`, `date_opened`, `region_province`, `facility_name`, `patient_id`, `physician_id`, `source_of_patient`, `bacteriological_status`, `tb_classification`, `diagnosis`, `registration_group`, `treatment_regimen`, `treatment_started_date`, `treatment_outcome`, `treatment_outcome_date`, `created_at`, `updated_at`) VALUES
-	(1, '21312', '2024-11-05', '', NULL, 4, 14, 'Public Health Center', NULL, NULL, NULL, 'New', 'Select Treatment Regimen', NULL, 'CURED', NULL, '2024-11-12 06:17:33', '2024-11-12 06:17:33');
+	(1, '21312', '2024-11-05', '', NULL, 4, 14, 'Public Health Center', NULL, NULL, NULL, 'New', 'Select Treatment Regimen', NULL, 'CURED', NULL, '2024-11-12 06:17:33', '2024-11-12 06:17:33'),
+	(2, '2024-0001', '2024-11-14', '', NULL, 4, 14, 'Public Health Center', NULL, NULL, NULL, 'New', 'Select Treatment Regimen', NULL, 'CURED', NULL, '2024-11-12 21:21:52', '2024-11-12 21:47:44');
 
 -- Dumping structure for table tbdots.locations
 CREATE TABLE IF NOT EXISTS `locations` (
@@ -297,7 +303,7 @@ CREATE TABLE IF NOT EXISTS `locations` (
   CONSTRAINT `locations_ibfk_2` FOREIGN KEY (`barangay_id`) REFERENCES `barangays` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=128 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.locations: ~6 rows (approximately)
+-- Dumping data for table tbdots.locations: ~117 rows (approximately)
 INSERT INTO `locations` (`id`, `municipality_id`, `barangay_id`, `created_at`, `updated_at`) VALUES
 	(1, 1, 1, '2024-11-12 20:56:49', '2024-11-12 20:56:49'),
 	(2, 1, 2, '2024-11-12 20:56:49', '2024-11-12 20:56:49'),
@@ -424,7 +430,7 @@ CREATE TABLE IF NOT EXISTS `modules` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.modules: ~12 rows (approximately)
+-- Dumping data for table tbdots.modules: ~21 rows (approximately)
 INSERT INTO `modules` (`id`, `module`) VALUES
 	(1, 'user_index'),
 	(2, 'user_add'),
@@ -498,7 +504,7 @@ CREATE TABLE IF NOT EXISTS `patients` (
   CONSTRAINT `FK_patients_users` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.patients: ~0 rows (approximately)
+-- Dumping data for table tbdots.patients: ~1 rows (approximately)
 INSERT INTO `patients` (`id`, `fullname`, `age`, `gender`, `contact`, `address`, `physician_id`, `location_id`, `lab_results_id`, `updated_at`, `created_at`, `height`, `dob`, `bcg_scar`, `occupation`, `phil_health_no`, `contact_person`, `contact_person_no`) VALUES
 	(4, 'Lester bon Biono', 25, 1, '636565113', 'Brgy. San Teodoro, Binalbagan, Negros Occidental', 15, 1, NULL, '2024-11-12 08:16:51', '2024-11-10 17:34:52', 21312, '2024-11-22', NULL, 'Farmer', '12312', '12sdas', '164654');
 
@@ -514,7 +520,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.products: ~0 rows (approximately)
+-- Dumping data for table tbdots.products: ~1 rows (approximately)
 INSERT INTO `products` (`id`, `brand_name`, `generic_name`, `uses`, `dosage`, `unit_of_measure`, `created_at`) VALUES
 	(1, 'Biogesic', 'Paracetamol', 'Fever', '500', 'Tablet', '2024-11-12 20:41:49');
 
@@ -531,7 +537,7 @@ CREATE TABLE IF NOT EXISTS `roles` (
 -- Dumping data for table tbdots.roles: ~4 rows (approximately)
 INSERT INTO `roles` (`id`, `description`, `module`, `updated_at`, `created_at`) VALUES
 	(1, 'Super Admin', '[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]', '2024-11-12 20:19:13', '2024-05-26 07:20:56'),
-	(2, 'Admin', '[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]', '2024-11-12 20:19:12', '2024-05-26 07:21:42'),
+	(2, 'Admin', '["1","2","3","4","5","6","7","8","9","10","11","12","17","18","19","20"]', '2024-11-12 23:08:34', '2024-05-26 07:21:42'),
 	(3, 'Physician', '[5,9,10,11,12]', '2024-05-26 08:01:46', '2024-05-26 07:22:14'),
 	(4, 'Regular', '[5,9,10,11,12]', '2024-05-26 08:01:50', '2024-05-26 07:23:23');
 
@@ -544,7 +550,7 @@ CREATE TABLE IF NOT EXISTS `test_lists` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.test_lists: ~6 rows (approximately)
+-- Dumping data for table tbdots.test_lists: ~7 rows (approximately)
 INSERT INTO `test_lists` (`id`, `name`, `updated_at`, `created_at`) VALUES
 	(1, 'Xpert MTB / RIF', '2024-05-24 09:14:07', '2024-05-24 09:14:07'),
 	(2, 'Smear Microscopy', '2024-05-24 09:14:22', '2024-05-24 09:14:22'),
@@ -573,7 +579,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`) VALUES
 	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 2, '2024-05-03 05:29:07', '2024-05-26 08:02:01'),
 	(14, 'admin', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'admin', 2, '2024-05-27 06:30:41', '2024-05-27 06:30:41'),
-	(15, 'Docone', '827ccb0eea8a706c4c34a16891f84e7b', 'Doc', 'One', 3, '2024-05-27 06:39:57', '2024-05-27 06:40:07');
+	(15, 'Docone', '21232f297a57a5a743894a0e4a801fc3', 'Doc', 'One', 3, '2024-05-27 06:39:57', '2024-11-12 23:11:19');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

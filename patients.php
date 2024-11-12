@@ -114,22 +114,43 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   }
 }
 
-$userssql = "SELECT p.*, 
-    m.location as municipality_name,
-    b.name as barangay_name 
+// Add location filter query
+$locationsQuery = "
+    SELECT l.id, m.location as municipality, b.name as barangay 
+    FROM locations l
+    JOIN municipalities m ON l.municipality_id = m.id 
+    JOIN barangays b ON l.barangay_id = b.id
+    ORDER BY m.location, b.name";
+$locations = $conn->query($locationsQuery);
+
+// Get selected location and name from URL parameters
+$selectedLocation = isset($_GET['location']) ? (int)$_GET['location'] : 0;
+$searchName = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// Build the WHERE clause
+$whereConditions = [];
+if ($selectedLocation > 0) {
+    $whereConditions[] = "p.location_id = $selectedLocation";
+}
+if (!empty($searchName)) {
+    $whereConditions[] = "p.fullname LIKE '%" . $conn->real_escape_string($searchName) . "%'";
+}
+
+$whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
+
+// Ensure your SQL query is correct and fetching the necessary data
+$sql = "
+    SELECT 
+        p.*,
+        COALESCE(b.name, '') as barangay_name,
+        COALESCE(m.location, '') as municipality_name
     FROM patients p
     LEFT JOIN locations l ON p.location_id = l.id
     LEFT JOIN municipalities m ON l.municipality_id = m.id
-    LEFT JOIN barangays b ON l.barangay_id = b.id";
-$users = $conn->query($userssql);
-
-$locationsql = "SELECT l.*, 
-    m.location as municipality_name,
-    b.name as barangay_name 
-    FROM locations l
-    LEFT JOIN municipalities m ON l.municipality_id = m.id 
-    LEFT JOIN barangays b ON l.barangay_id = b.id";
-$locations = $conn->query($locationsql);
+    LEFT JOIN barangays b ON l.barangay_id = b.id
+    $whereClause
+    ORDER BY p.created_at DESC";
+$result = $conn->query($sql);
 
 $physicianssql = "SELECT * FROM users WHERE role = 3";
 $physicians = $conn->query($physicianssql);
@@ -226,7 +247,7 @@ $physicians = $conn->query($physicianssql);
   }
 
   .btn-link:hover {
-    background-color: rgba(0,0,0,0.05);
+    background-color: rgba(0, 0, 0, 0.05);
     border-radius: 0.25rem;
   }
 
@@ -294,12 +315,78 @@ $physicians = $conn->query($physicianssql);
   }
 
   tr:not(:first-child):hover {
-    background-color: rgba(0,0,0,0.05);
+    background-color: rgba(0, 0, 0, 0.05);
     cursor: pointer;
   }
 
-  .EDIT, .DELETE {
+  .EDIT,
+  .DELETE {
     cursor: default;
+  }
+
+  .card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .card-header {
+    border-radius: 15px !important;
+  }
+
+  .form-select {
+    height: 40px;
+    border-radius: 5px;
+  }
+
+  .form-select option {
+    color: #333;
+  }
+
+  .form-control {
+    height: 40px;
+    border-radius: 5px;
+  }
+
+  .btn-light {
+    background-color: white;
+    border: none;
+    height: 40px;
+    border-radius: 5px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  /* Remove focus outlines */
+  .form-select:focus,
+  .form-control:focus,
+  .btn-light:focus {
+    box-shadow: none;
+  }
+
+  /* Custom placeholder color */
+  .form-control::placeholder {
+    color: #999;
+  }
+
+  .btn-outline-light {
+    border: 1px solid white;
+    color: white;
+    height: 40px;
+    border-radius: 5px;
+    font-weight: 500;
+  }
+
+  .btn-outline-light:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-color: white;
+  }
+
+  .btn {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.875rem;
+    text-transform: uppercase;
   }
 </style>
 
@@ -315,48 +402,72 @@ $physicians = $conn->query($physicianssql);
       <div class="row">
         <div class="col-12">
           <div class="card my-4">
-            <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2">
-              <div class="bg-gradient-primary shadow-primary border-radius-lg pt-4 pb-3">
-                <div class="d-flex justify-content-between align-items-center px-3">
-                  <h6 class="text-white text-capitalize mb-0">Patient List</h6>
-                  <div class="d-flex align-items-center">
-                    <div class="input-group input-group-outline bg-white rounded me-3">
-                      <input type="text" id="searchPatient" class="form-control" placeholder="Search patients...">
-                    </div>
-                    <?php if(isset($_SESSION['module']) && in_array(10, $_SESSION['module'])): ?>
-                      <button type="button" class="btn btn-light text-capitalize" data-bs-toggle="modal" data-bs-target="#addPatientModal">
-                        <i class="fa fa-plus">Patient</i>
-                      </button>
-                    <?php endif; ?>
-                  </div>
-                </div>
+            <div class="card-header d-flex justify-content-between align-items-center p-4" style="background-color: #E91E63;">
+              <div>
+                <h6 class="text-white mb-0">Patient List</h6>
               </div>
+              <form method="GET" class="d-flex align-items-center gap-3">
+                <select name="location" class="form-select" style="width: 200px; background-color: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                  <option value="0">All Locations</option>
+                  <?php 
+                  $locations->data_seek(0); // Reset the locations result pointer
+                  while($loc = $locations->fetch_assoc()): 
+                  ?>
+                    <option value="<?php echo $loc['id']; ?>" <?php echo $selectedLocation == $loc['id'] ? 'selected' : ''; ?>>
+                      <?php echo htmlspecialchars($loc['municipality'] . ' - ' . $loc['barangay']); ?>
+                    </option>
+                  <?php endwhile; ?>
+                </select>
+                <input type="text" name="search" class="form-control" placeholder="Search by name..." 
+                  value="<?php echo htmlspecialchars($searchName); ?>"
+                  style="width: 300px; background-color: white; border: none;">
+                <button type="submit" class="btn btn-light">FILTER</button>
+                <a href="patients.php" class="btn btn-outline-light">RESET</a>
+                <button type="button" class="btn btn-light d-flex align-items-center gap-2" onclick="openAddModal()">
+                  <i class="fas fa-plus"></i>
+                  <span>PATIENT</span>
+                </button>
+              </form>
             </div>
             <div class="card-body px-0 pb-2">
               <div class="table-responsive p-0">
                 <table class="table align-items-center mb-0" id="patientsTable">
                   <thead>
                     <tr>
-                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Full name</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Address</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Gender</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Age</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Registered Since</th>
+                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Full name
+                      </th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                        Address</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Gender
+                      </th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Age
+                      </th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                        Registered Since</th>
                       <th class="text-secondary opacity-7"></th>
                     </tr>
                   </thead>
                   <tbody>
                     <?php 
-                        if ($users->num_rows > 0) {
+                        if ($result->num_rows > 0) {
+                          $address = '';
+                          if (!empty($row["barangay_name"])) {
+                              $address .= "Brgy. " . htmlspecialchars($row["barangay_name"]);
+                          }
+                          if (!empty($row["municipality_name"])) {
+                              $address .= (!empty($address) ? ", " : "") . htmlspecialchars($row["municipality_name"]);
+                          }
+                          if (empty($address) && !empty($row["address"])) {
+                              $address = htmlspecialchars($row["address"]);
+                          }
                           // Output data of each row
-                          while($row = $users->fetch_assoc()) {
+                          while($row = $result->fetch_assoc()) {
                             echo "
                               <tr onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' style='cursor: pointer;'>
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["fullname"]."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".
-                                  ($row["barangay_name"] ? "Brgy. ".$row["barangay_name"].", " : "") .
-                                  ($row["municipality_name"] ? $row["municipality_name"] : $row["address"]).
-                                "</span></td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>".$address."</span>
+                                </td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".($row["gender"] == 1 ? "Male" : "Female")."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["age"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
@@ -386,14 +497,16 @@ $physicians = $conn->query($physicianssql);
         </div>
       </div>
     </div>
-    <div class="modal fade" id="addPatientModal" tabindex="-1" aria-labelledby="addPatientModalLabel" aria-hidden="true">
+    <div class="modal fade" id="addPatientModal" tabindex="-1" aria-labelledby="addPatientModalLabel"
+      aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="addPatientModalLabel">Add Patient</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <form role="form" class="text-start" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+          <form role="form" class="text-start" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>"
+            method="post">
             <div class="modal-body">
               <div class="row">
                 <div class="col-md-6">
@@ -403,11 +516,11 @@ $physicians = $conn->query($physicianssql);
                     <select class="form-control" id="location" name="location" required>
                       <option value="">Choose a Location</option>
                       <?php foreach($locations as $location): ?>
-                        <option value="<?php echo $location['id']; ?>">
-                          <?php 
-                            echo "Brgy. " . $location['barangay_name'] . ", " . $location['municipality_name'];
+                      <option value="<?php echo $location['id']; ?>">
+                        <?php 
+                            echo "Brgy. " . $location['barangay'] . ", " . $location['municipality'];
                           ?>
-                        </option>
+                      </option>
                       <?php endforeach; ?>
                     </select>
                   </div>
@@ -466,7 +579,8 @@ $physicians = $conn->query($physicianssql);
                     <select class="form-control" id="physician" name="physician" required>
                       <option value="">Choose a Physician</option>
                       <?php foreach($physicians as $physician): ?>
-                        <option value="<?php echo $physician['id']; ?>"><?php echo $physician['first_name']. " ". $physician['last_name']; ?></option>
+                      <option value="<?php echo $physician['id']; ?>">
+                        <?php echo $physician['first_name']. " ". $physician['last_name']; ?></option>
                       <?php endforeach; ?>
                     </select>
                   </div>
@@ -496,10 +610,117 @@ $physicians = $conn->query($physicianssql);
         </div>
       </div>
     </div>
-    
-    <?php
-        include_once('footer.php');
-      ?>
+
+    <script>
+      // Add Patient Modal Functions
+      function openAddModal() {
+        // Reset the form
+        document.getElementById('id').value = '';
+        document.getElementById('fullname').value = '';
+        document.getElementById('age').value = '';
+        document.getElementById('gender').value = '';
+        document.getElementById('contact').value = '';
+        document.getElementById('address').value = '';
+        document.getElementById('height').value = '';
+        document.getElementById('dob').value = '';
+        document.getElementById('occupation').value = '';
+        document.getElementById('phil_health_no').value = '';
+        document.getElementById('contact_person').value = '';
+        document.getElementById('contact_person_no').value = '';
+        document.getElementById('physician').value = '';
+        document.getElementById('location').value = '';
+        
+        // Update modal title and button
+        document.getElementById('addPatientModalLabel').textContent = 'Add Patient';
+        document.getElementById('form-button').textContent = 'Add Patient';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('addPatientModal'));
+        modal.show();
+      }
+
+      // Edit Patient Function
+      function editPatient(id, data) {
+        event.stopPropagation(); // Prevent row click event
+        
+        // Populate form with patient data
+        document.getElementById('id').value = id;
+        document.getElementById('fullname').value = data.fullname;
+        document.getElementById('age').value = data.age;
+        document.getElementById('gender').value = data.gender;
+        document.getElementById('contact').value = data.contact;
+        document.getElementById('address').value = data.address;
+        document.getElementById('height').value = data.height;
+        document.getElementById('dob').value = data.dob;
+        document.getElementById('occupation').value = data.occupation;
+        document.getElementById('phil_health_no').value = data.phil_health_no;
+        document.getElementById('contact_person').value = data.contact_person;
+        document.getElementById('contact_person_no').value = data.contact_person_no;
+        document.getElementById('physician').value = data.physician_id;
+        document.getElementById('location').value = data.location_id;
+
+        // Update modal title and button
+        document.getElementById('addPatientModalLabel').textContent = 'Edit Patient';
+        document.getElementById('form-button').textContent = 'Save Changes';
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('addPatientModal'));
+        modal.show();
+      }
+
+      // Show Lab Results Function
+      function showLabResults(patientId, patientName) {
+        console.log('Loading lab results for:', patientId, patientName);
+
+        // Show the lab results section
+        let labResultsSection = document.querySelector('.lab-results-section');
+        labResultsSection.style.display = 'block';
+
+        // Update the content
+        document.getElementById('treatmentDetailsContent').innerHTML = `
+          <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading results for ${patientName}...</p>
+          </div>
+        `;
+
+        // Scroll to the section
+        labResultsSection.scrollIntoView({ behavior: 'smooth' });
+
+        // Fetch the results
+        fetch(`get_lab_results_card.php?patient_id=${patientId}`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.text();
+          })
+          .then(html => {
+            document.getElementById('treatmentDetailsContent').innerHTML = html;
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('treatmentDetailsContent').innerHTML = `
+              <div class="alert alert-danger">
+                Error loading lab results: ${error.message}
+              </div>
+            `;
+          });
+      }
+
+      // Initialize when document is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips if needed
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+      });
+    </script>
+
+    <?php include_once('footer.php'); ?>
   </main>
   <script src="../assets/js/core/popper.min.js"></script>
   <script src="../assets/js/core/bootstrap.min.js"></script>
@@ -507,147 +728,6 @@ $physicians = $conn->query($physicianssql);
   <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <script src="../assets/js/material-dashboard.min.js?v=3.1.0"></script>
-  <script>
-    var modal = new bootstrap.Modal(document.getElementById('exampleModal'))
-    document.getElementById('openModalButton').addEventListener('click', function () {
-      modal.show()
-    })
-
-    function editUser(id, username, first_name, last_name, role){
-      var modal = new bootstrap.Modal(document.getElementById('addUserModal'))
-      document.getElementById('id').value = id;
-      document.getElementById('username').value = username;
-      document.getElementById('first_name').value = first_name;
-      document.getElementById('last_name').value = last_name;
-      document.getElementById('role').value = role;
-      document.getElementById('password').readOnly = true;
-      document.getElementById('form-button').innerHTML = "Save Changes";
-      modal.show()
-    }
-
-    var win = navigator.platform.indexOf('Win') > -1;
-    if (win && document.querySelector('#sidenav-scrollbar')) {
-      var options = {
-        damping: '0.5'
-      }
-      Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
-    }
-
-    function showLabResults(patientId, patientName) {
-        console.log('Loading lab results for:', patientId, patientName);
-        
-        // Show the lab results section
-        let labResultsSection = document.querySelector('.lab-results-section');
-        labResultsSection.style.display = 'block'; // Make sure it's visible
-        
-        // Update the content
-        document.getElementById('treatmentDetailsContent').innerHTML = `
-            <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Loading results for ${patientName}...</p>
-            </div>
-        `;
-        
-        // Scroll to the section
-        labResultsSection.scrollIntoView({ behavior: 'smooth' });
-        
-        // Fetch the results
-        fetch(`get_lab_results_card.php?patient_id=${patientId}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.text();
-            })
-            .then(html => {
-                document.getElementById('treatmentDetailsContent').innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('treatmentDetailsContent').innerHTML = `
-                    <div class="alert alert-danger">
-                        Error loading lab results: ${error.message}
-                    </div>
-                `;
-            });
-    }
-
-    // Update the click handler
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM Content Loaded');
-        
-        // Fix the search functionality
-        const searchInput = document.getElementById('searchPatient');
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                const searchValue = this.value.toLowerCase();
-                console.log('Searching for:', searchValue);
-                
-                const tableRows = document.querySelectorAll('#patientsTable tbody tr');
-                tableRows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(searchValue) ? '' : 'none';
-                });
-            });
-        }
-        
-        // Fix the click handler for rows
-        const tbody = document.querySelector('#patientsTable tbody');
-        if (tbody) {
-            tbody.addEventListener('click', function(e) {
-                const row = e.target.closest('tr');
-                console.log('Row clicked:', row);
-                
-                if (row && !e.target.closest('button, form')) {
-                    const patientId = row.dataset.patientId;
-                    const patientName = row.dataset.patientName;
-                    console.log('Clicked patient:', { patientId, patientName });
-                    
-                    if (patientId) {
-                        showLabResults(patientId, patientName);
-                    }
-                }
-            });
-        }
-        
-        // Check for patient_id in URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const patientId = urlParams.get('patient_id');
-        if (patientId) {
-            showLabResults(patientId);
-        }
-    });
-
-    // Add this function to handle patient editing
-    function editPatient(id, data) {
-      event.stopPropagation(); // Prevent row click event
-      
-      // Populate the modal with patient data
-      document.getElementById('id').value = id;
-      document.getElementById('fullname').value = data.fullname;
-      document.getElementById('age').value = data.age;
-      document.getElementById('gender').value = data.gender;
-      document.getElementById('contact').value = data.contact;
-      document.getElementById('address').value = data.address;
-      document.getElementById('height').value = data.height;
-      document.getElementById('dob').value = data.dob;
-      document.getElementById('occupation').value = data.occupation;
-      document.getElementById('phil_health_no').value = data.phil_health_no;
-      document.getElementById('contact_person').value = data.contact_person;
-      document.getElementById('contact_person_no').value = data.contact_person_no;
-      document.getElementById('physician').value = data.physician_id;
-      document.getElementById('location').value = data.location_id;
-      
-      // Update button text
-      document.getElementById('form-button').innerHTML = "Save Changes";
-      
-      // Show modal
-      const modal = new bootstrap.Modal(document.getElementById('addPatientModal'));
-      modal.show();
-    }
-  </script>
 </body>
 
 </html>

@@ -9,29 +9,49 @@ if(!isset($_SESSION['user_id'])) {
 require_once "connection/db.php";
 include_once('head.php');
 
+// Add location filter query
+$locationsQuery = "
+    SELECT l.id, m.location as municipality, b.name as barangay 
+    FROM locations l
+    JOIN municipalities m ON l.municipality_id = m.id 
+    JOIN barangays b ON l.barangay_id = b.id
+    ORDER BY m.location, b.name";
+$locations = $conn->query($locationsQuery);
+
+// Get selected location from URL parameter
+$selectedLocation = isset($_GET['location']) ? (int)$_GET['location'] : 0;
+
+// Modify the location condition for all queries
+$locationCondition = $selectedLocation > 0 ? "AND p.location_id = $selectedLocation" : "";
+
 // Get statistics for the cards
 $thisWeekPatients = $conn->query("
     SELECT COUNT(*) as count 
-    FROM patients 
+    FROM patients p
     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)
+    $locationCondition
 ")->fetch_assoc();
 
 $totalConfined = $conn->query("
     SELECT COUNT(*) as count 
-    FROM lab_results 
-    WHERE treatment_outcome IS NULL
+    FROM lab_results l
+    JOIN patients p ON l.patient_id = p.id
+    WHERE l.treatment_outcome IS NULL
+    $locationCondition
 ")->fetch_assoc();
 
 $newPatients = $conn->query("
     SELECT COUNT(*) as count 
-    FROM patients 
+    FROM patients p
     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    $locationCondition
 ")->fetch_assoc();
 
 $totalAnnualPatients = $conn->query("
     SELECT COUNT(*) as count 
-    FROM patients 
+    FROM patients p
     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    $locationCondition
 ")->fetch_assoc();
 
 // Get recent patients for the table
@@ -42,6 +62,8 @@ $recentPatientsSql = "
     FROM patients p
     LEFT JOIN municipalities m ON p.location_id = m.id
     LEFT JOIN barangays b ON b.municipality_id = m.id
+    WHERE 1=1 
+    $locationCondition
     ORDER BY p.created_at DESC 
     LIMIT 10";
 
@@ -50,9 +72,10 @@ $recentPatients = $conn->query($recentPatientsSql);
 // This Week's Patients comparison
 $lastWeekPatients = $conn->query("
     SELECT COUNT(*) as count 
-    FROM patients 
+    FROM patients p
     WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 WEEK), INTERVAL 1 WEEK)
     AND created_at < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+    $locationCondition
 ")->fetch_assoc();
 
 $weeklyChange = $lastWeekPatients['count'] > 0 
@@ -62,10 +85,12 @@ $weeklyChange = $lastWeekPatients['count'] > 0
 // Number of Confined comparison
 $lastMonthConfined = $conn->query("
     SELECT COUNT(*) as count 
-    FROM lab_results 
-    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL 1 MONTH)
-    AND created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)
-    AND treatment_outcome IS NULL
+    FROM lab_results l
+    JOIN patients p ON l.patient_id = p.id
+    WHERE l.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL 1 MONTH)
+    AND l.created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    AND l.treatment_outcome IS NULL
+    $locationCondition
 ")->fetch_assoc();
 
 $confinedChange = $lastMonthConfined['count'] > 0
@@ -75,9 +100,10 @@ $confinedChange = $lastMonthConfined['count'] > 0
 // New Patients (24h) comparison
 $previousDayPatients = $conn->query("
     SELECT COUNT(*) as count 
-    FROM patients 
+    FROM patients p
     WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 24 HOUR), INTERVAL 24 HOUR)
     AND created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    $locationCondition
 ")->fetch_assoc();
 
 $dailyChange = $previousDayPatients['count'] > 0
@@ -87,9 +113,10 @@ $dailyChange = $previousDayPatients['count'] > 0
 // Annual Patients comparison
 $previousYearPatients = $conn->query("
     SELECT COUNT(*) as count 
-    FROM patients 
+    FROM patients p
     WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 YEAR), INTERVAL 1 YEAR)
     AND created_at < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    $locationCondition
 ")->fetch_assoc();
 
 $annualChange = $previousYearPatients['count'] > 0
@@ -99,13 +126,16 @@ $annualChange = $previousYearPatients['count'] > 0
 // Add this query near your other statistics queries
 $healedPatients = $conn->query("
     SELECT 
-        DATE_FORMAT(treatment_outcome_date, '%b') as month,
-        DATE_FORMAT(treatment_outcome_date, '%Y-%m') as month_year,
+        DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
+        DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
         COUNT(*) as count
-    FROM lab_results
-    WHERE treatment_outcome = 'CURED'
-    AND treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
-    GROUP BY DATE_FORMAT(treatment_outcome_date, '%Y-%m'), DATE_FORMAT(treatment_outcome_date, '%b')
+    FROM lab_results l
+    JOIN patients p ON l.patient_id = p.id
+    WHERE l.treatment_outcome = 'CURED'
+    AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
+    $locationCondition
+    GROUP BY DATE_FORMAT(l.treatment_outcome_date, '%Y-%m'), 
+             DATE_FORMAT(l.treatment_outcome_date, '%b')
     ORDER BY month_year ASC
 ")->fetch_all(MYSQLI_ASSOC);
 
@@ -139,6 +169,29 @@ $healedData = json_encode(array_values($months));
       include_once('navbar.php');
     ?>
     <div class="container-fluid py-4">
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body p-3">
+              <form method="GET" class="row align-items-center">
+                <div class="col-md-10">
+                  <select name="location" class="form-select" onchange="this.form.submit()">
+                    <option value="0">All Locations</option>
+                    <?php while($loc = $locations->fetch_assoc()): ?>
+                      <option value="<?php echo $loc['id']; ?>" <?php echo $selectedLocation == $loc['id'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($loc['municipality'] . ' - ' . $loc['barangay']); ?>
+                      </option>
+                    <?php endwhile; ?>
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <a href="dashboard.php" class="btn btn-outline-secondary w-100">Reset</a>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="row">
         <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
           <div class="card">
@@ -162,7 +215,7 @@ $healedData = json_encode(array_values($months));
             </div>
           </div>
         </div>
-        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+        <!-- <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
           <div class="card">
             <div class="card-header p-3 pt-2">
               <div class="icon icon-lg icon-shape bg-gradient-primary shadow-primary text-center border-radius-xl mt-n4 position-absolute">
@@ -183,7 +236,7 @@ $healedData = json_encode(array_values($months));
               </p>
             </div>
           </div>
-        </div>
+        </div> -->
         <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
           <div class="card">
             <div class="card-header p-3 pt-2">
@@ -230,7 +283,7 @@ $healedData = json_encode(array_values($months));
         </div>
       </div>
       <div class="row mt-4">
-        <div class="col-lg-4 col-md-6 mt-4 mb-4">
+        <!-- <div class="col-lg-4 col-md-6 mt-4 mb-4">
           <div class="card z-index-2 ">
             <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2 bg-transparent">
               <div class="bg-gradient-primary shadow-primary border-radius-lg py-3 pe-1">
@@ -249,7 +302,7 @@ $healedData = json_encode(array_values($months));
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
         <div class="col-lg-4 col-md-6 mt-4 mb-4">
           <div class="card z-index-2  ">
             <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2 bg-transparent">
@@ -439,85 +492,85 @@ $healedData = json_encode(array_values($months));
   <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
   <script src="../assets/js/plugins/chartjs.min.js"></script>
   <script>
-    var ctx = document.getElementById("chart-bars").getContext("2d");
+    // var ctx = document.getElementById("chart-bars").getContext("2d");
 
-    new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: ["M", "T", "W", "T", "F", "S", "S"],
-        datasets: [{
-          label: "Sales",
-          tension: 0.4,
-          borderWidth: 0,
-          borderRadius: 4,
-          borderSkipped: false,
-          backgroundColor: "rgba(255, 255, 255, .8)",
-          data: [50, 20, 10, 22, 50, 10, 40],
-          maxBarThickness: 6
-        }, ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
-          }
-        },
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          y: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [5, 5],
-              color: 'rgba(255, 255, 255, .2)'
-            },
-            ticks: {
-              suggestedMin: 0,
-              suggestedMax: 500,
-              beginAtZero: true,
-              padding: 10,
-              font: {
-                size: 14,
-                weight: 300,
-                family: "Roboto",
-                style: 'normal',
-                lineHeight: 2
-              },
-              color: "#fff"
-            },
-          },
-          x: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [5, 5],
-              color: 'rgba(255, 255, 255, .2)'
-            },
-            ticks: {
-              display: true,
-              color: '#f8f9fa',
-              padding: 10,
-              font: {
-                size: 14,
-                weight: 300,
-                family: "Roboto",
-                style: 'normal',
-                lineHeight: 2
-              },
-            }
-          },
-        },
-      },
-    });
+    // new Chart(ctx, {
+    //   type: "bar",
+    //   data: {
+    //     labels: ["M", "T", "W", "T", "F", "S", "S"],
+    //     datasets: [{
+    //       label: "Sales",
+    //       tension: 0.4,
+    //       borderWidth: 0,
+    //       borderRadius: 4,
+    //       borderSkipped: false,
+    //       backgroundColor: "rgba(255, 255, 255, .8)",
+    //       data: [50, 20, 10, 22, 50, 10, 40],
+    //       maxBarThickness: 6
+    //     }, ],
+    //   },
+    //   options: {
+    //     responsive: true,
+    //     maintainAspectRatio: false,
+    //     plugins: {
+    //       legend: {
+    //         display: false,
+    //       }
+    //     },
+    //     interaction: {
+    //       intersect: false,
+    //       mode: 'index',
+    //     },
+    //     scales: {
+    //       y: {
+    //         grid: {
+    //           drawBorder: false,
+    //           display: true,
+    //           drawOnChartArea: true,
+    //           drawTicks: false,
+    //           borderDash: [5, 5],
+    //           color: 'rgba(255, 255, 255, .2)'
+    //         },
+    //         ticks: {
+    //           suggestedMin: 0,
+    //           suggestedMax: 500,
+    //           beginAtZero: true,
+    //           padding: 10,
+    //           font: {
+    //             size: 14,
+    //             weight: 300,
+    //             family: "Roboto",
+    //             style: 'normal',
+    //             lineHeight: 2
+    //           },
+    //           color: "#fff"
+    //         },
+    //       },
+    //       x: {
+    //         grid: {
+    //           drawBorder: false,
+    //           display: true,
+    //           drawOnChartArea: true,
+    //           drawTicks: false,
+    //           borderDash: [5, 5],
+    //           color: 'rgba(255, 255, 255, .2)'
+    //         },
+    //         ticks: {
+    //           display: true,
+    //           color: '#f8f9fa',
+    //           padding: 10,
+    //           font: {
+    //             size: 14,
+    //             weight: 300,
+    //             family: "Roboto",
+    //             style: 'normal',
+    //             lineHeight: 2
+    //           },
+    //         }
+    //       },
+    //     },
+    //   },
+    // });
 
 
     var ctx2 = document.getElementById("chart-line").getContext("2d");
