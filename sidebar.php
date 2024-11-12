@@ -59,6 +59,16 @@
           </a>
         </li>
         <?php endif; ?>
+        <?php if(isset($_SESSION['module']) && in_array(1, $_SESSION['module'])): ?>
+        <li class="nav-item">
+          <a class="nav-link text-white <?php if($current_page == 'activity_logs.php') echo 'active bg-gradient-primary'; ?>" href="activity_logs.php">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons opacity-10">history</i>
+            </div>
+            <span class="nav-link-text ms-1">Activity Logs</span>
+          </a>
+        </li>
+        <?php endif; ?>
         <!-- <li class="nav-item">
           <a class="nav-link text-white " href="../pages/tables.html">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">

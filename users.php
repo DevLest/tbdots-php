@@ -7,6 +7,7 @@ if(!isset($_SESSION['user_id'])) {
 }
 
 require_once "connection/db.php";
+require_once "functions/log_activity.php";
 include_once('head.php');
 
 if($_SERVER["REQUEST_METHOD"] == "POST"){
@@ -34,16 +35,55 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   if(!empty($username) && !empty($password) && !empty($first_name) && !empty($last_name) && !empty($role) && $_POST["id"] == ""){
     $sql = "INSERT INTO users (username, password, first_name, last_name, role) VALUES ('$username', '$password', '$first_name', '$last_name', '$role')";
     $addUsers = $conn->query($sql);
+    
+    if($addUsers) {
+        logActivity(
+            $conn, 
+            $_SESSION['user_id'], 
+            'CREATE', 
+            'users', 
+            $conn->insert_id, 
+            "Created new user: $username"
+        );
+    }
   } else if(isset($_POST["id"]) && !empty(trim($_POST["id"]))){
     $sql = "UPDATE users SET username = '$username', first_name = '$first_name', last_name = '$last_name', role = '$role' WHERE id = '".trim($_POST["id"])."'";
     $editUser = $conn->query($sql);
+    
+    if($editUser) {
+        logActivity(
+            $conn, 
+            $_SESSION['user_id'], 
+            'UPDATE', 
+            'users', 
+            $_POST["id"], 
+            "Updated user: $username"
+        );
+    }
   }
 
   
   if(isset($_POST["delete_id"]) && !empty(trim($_POST["delete_id"]))){
+    $stmt = $conn->prepare("SELECT username FROM users WHERE id = ?");
+    $stmt->bind_param('i', $_POST['delete_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    
     $delete_id = trim($_POST["delete_id"]);
     $sql = "DELETE FROM users WHERE id = '$delete_id'";
     $deleteUser = $conn->query($sql);
+    
+    if($deleteUser) {
+        logActivity(
+            $conn, 
+            $_SESSION['user_id'], 
+            'DELETE', 
+            'users', 
+            $delete_id, 
+            "Deleted user: " . $user['username']
+        );
+    }
   }
 }
 

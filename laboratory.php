@@ -7,6 +7,7 @@ if(!isset($_SESSION['user_id'])) {
 }
 
 require_once "connection/db.php";
+require_once "functions/log_activity.php";
 include_once('head.php');
 
 // Consolidate all queries at the top
