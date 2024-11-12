@@ -8,6 +8,123 @@ if(!isset($_SESSION['user_id'])) {
 
 require_once "connection/db.php";
 include_once('head.php');
+
+// Get statistics for the cards
+$thisWeekPatients = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM patients 
+    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)
+")->fetch_assoc();
+
+$totalConfined = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM tb_treatment_cards 
+    WHERE treatment_outcome IS NULL
+")->fetch_assoc();
+
+$newPatients = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM patients 
+    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+")->fetch_assoc();
+
+$totalAnnualPatients = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM patients 
+    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+")->fetch_assoc();
+
+// Get recent patients for the table
+$recentPatients = $conn->query("
+    SELECT p.*, l.location, t.treatment_outcome
+    FROM patients p
+    LEFT JOIN locations l ON p.location_id = l.id 
+    LEFT JOIN tb_treatment_cards t ON p.id = t.patient_id
+    ORDER BY p.created_at DESC
+    LIMIT 5
+");
+
+// This Week's Patients comparison
+$lastWeekPatients = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM patients 
+    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 WEEK), INTERVAL 1 WEEK)
+    AND created_at < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+")->fetch_assoc();
+
+$weeklyChange = $lastWeekPatients['count'] > 0 
+    ? round((($thisWeekPatients['count'] - $lastWeekPatients['count']) / $lastWeekPatients['count']) * 100, 1)
+    : 0;
+
+// Number of Confined comparison
+$lastMonthConfined = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM tb_treatment_cards 
+    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL 1 MONTH)
+    AND created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    AND treatment_outcome IS NULL
+")->fetch_assoc();
+
+$confinedChange = $lastMonthConfined['count'] > 0
+    ? round((($totalConfined['count'] - $lastMonthConfined['count']) / $lastMonthConfined['count']) * 100, 1)
+    : 0;
+
+// New Patients (24h) comparison
+$previousDayPatients = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM patients 
+    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 24 HOUR), INTERVAL 24 HOUR)
+    AND created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+")->fetch_assoc();
+
+$dailyChange = $previousDayPatients['count'] > 0
+    ? round((($newPatients['count'] - $previousDayPatients['count']) / $previousDayPatients['count']) * 100, 1)
+    : 0;
+
+// Annual Patients comparison
+$previousYearPatients = $conn->query("
+    SELECT COUNT(*) as count 
+    FROM patients 
+    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 YEAR), INTERVAL 1 YEAR)
+    AND created_at < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+")->fetch_assoc();
+
+$annualChange = $previousYearPatients['count'] > 0
+    ? round((($totalAnnualPatients['count'] - $previousYearPatients['count']) / $previousYearPatients['count']) * 100, 1)
+    : 0;
+
+// Add this query near your other statistics queries
+$healedPatients = $conn->query("
+    SELECT 
+        DATE_FORMAT(treatment_outcome_date, '%b') as month,
+        DATE_FORMAT(treatment_outcome_date, '%Y-%m') as month_year,
+        COUNT(*) as count
+    FROM tb_treatment_cards
+    WHERE treatment_outcome = 'CURED'
+    AND treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
+    GROUP BY DATE_FORMAT(treatment_outcome_date, '%Y-%m'), DATE_FORMAT(treatment_outcome_date, '%b')
+    ORDER BY month_year ASC
+")->fetch_all(MYSQLI_ASSOC);
+
+// Create arrays for labels and data
+$healedLabels = [];
+$healedData = [];
+
+// Get last 9 months
+$months = [];
+for ($i = 8; $i >= 0; $i--) {
+    $month = date('M', strtotime("-$i months"));
+    $months[$month] = 0;
+}
+
+// Fill in actual data
+foreach ($healedPatients as $record) {
+    $months[$record['month']] = (int)$record['count'];
+}
+
+// Convert to JSON for JavaScript
+$healedLabels = json_encode(array_keys($months));
+$healedData = json_encode(array_values($months));
 ?>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -28,12 +145,17 @@ include_once('head.php');
               </div>
               <div class="text-end pt-1">
                 <p class="text-sm mb-0 text-capitalize">This weeks Patients</p>
-                <h4 class="mb-0">53,000</h4>
+                <h4 class="mb-0"><?php echo $thisWeekPatients['count']; ?></h4>
               </div>
             </div>
             <hr class="dark horizontal my-0">
             <div class="card-footer p-3">
-              <p class="mb-0"><span class="text-success text-sm font-weight-bolder">+55% </span>than last week</p>
+              <p class="mb-0">
+                <span class="text-<?php echo $weeklyChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
+                  <?php echo ($weeklyChange >= 0 ? '+' : '') . $weeklyChange; ?>%
+                </span> 
+                than last week
+              </p>
             </div>
           </div>
         </div>
@@ -45,12 +167,17 @@ include_once('head.php');
               </div>
               <div class="text-end pt-1">
                 <p class="text-sm mb-0 text-capitalize">Number of Confined</p>
-                <h4 class="mb-0">2,300</h4>
+                <h4 class="mb-0"><?php echo $totalConfined['count']; ?></h4>
               </div>
             </div>
             <hr class="dark horizontal my-0">
             <div class="card-footer p-3">
-              <p class="mb-0"><span class="text-success text-sm font-weight-bolder">+3% </span>than last month</p>
+              <p class="mb-0">
+                <span class="text-<?php echo $confinedChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
+                  <?php echo ($confinedChange >= 0 ? '+' : '') . $confinedChange; ?>%
+                </span> 
+                than last month
+              </p>
             </div>
           </div>
         </div>
@@ -62,12 +189,17 @@ include_once('head.php');
               </div>
               <div class="text-end pt-1">
                 <p class="text-sm mb-0 text-capitalize">New Patients</p>
-                <h4 class="mb-0">3,462</h4>
+                <h4 class="mb-0"><?php echo $newPatients['count']; ?></h4>
               </div>
             </div>
             <hr class="dark horizontal my-0">
             <div class="card-footer p-3">
-              <p class="mb-0"><span class="text-danger text-sm font-weight-bolder">-2%</span> than yesterday</p>
+              <p class="mb-0">
+                <span class="text-<?php echo $dailyChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
+                  <?php echo ($dailyChange >= 0 ? '+' : '') . $dailyChange; ?>%
+                </span> 
+                than yesterday
+              </p>
             </div>
           </div>
         </div>
@@ -78,13 +210,18 @@ include_once('head.php');
                 <i class="material-icons opacity-10">weekend</i>
               </div>
               <div class="text-end pt-1">
-                <p class="text-sm mb-0 text-capitalize">Total Patients / Anually</p>
-                <h4 class="mb-0">103,430</h4>
+                <p class="text-sm mb-0 text-capitalize">Total Patients / Annually</p>
+                <h4 class="mb-0"><?php echo $totalAnnualPatients['count']; ?></h4>
               </div>
             </div>
             <hr class="dark horizontal my-0">
             <div class="card-footer p-3">
-              <p class="mb-0"><span class="text-success text-sm font-weight-bolder">+5% </span>than Last Year</p>
+              <p class="mb-0">
+                <span class="text-<?php echo $annualChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
+                  <?php echo ($annualChange >= 0 ? '+' : '') . $annualChange; ?>%
+                </span> 
+                than Last Year
+              </p>
             </div>
           </div>
         </div>
@@ -189,113 +326,35 @@ include_once('head.php');
                     </tr>
                   </thead>
                   <tbody>
+                    <?php while($patient = $recentPatients->fetch_assoc()): ?>
                     <tr>
-                      <td>
-                        <div class="d-flex px-2 py-1">
-                          <div class="d-flex flex-column justify-content-center">
-                            <h6 class="mb-0 text-sm">Kuya Kuy</h6>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex flex-column justify-content-center">
-                          <h6 class="mb-0 text-sm">San Teodoro, Binalbagan</h6>
-                        </div>
-                      </td>
-                      <td class="align-middle text-center text-sm">
-                        <span class="text-xs font-weight-bold"> 24 </span>
-                      </td>
-                      <td class="text-center">
-                        <span class="text-xs font-weight-bold"> Discharge </span>
-                      </td>
+                        <td>
+                            <div class="d-flex px-2 py-1">
+                                <div class="d-flex flex-column justify-content-center">
+                                    <h6 class="mb-0 text-sm"><?php echo htmlspecialchars($patient['fullname']); ?></h6>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column justify-content-center">
+                                <h6 class="mb-0 text-sm"><?php echo htmlspecialchars($patient['address']); ?></h6>
+                            </div>
+                        </td>
+                        <td class="align-middle text-center text-sm">
+                            <span class="text-xs font-weight-bold"><?php echo $patient['age']; ?></span>
+                        </td>
+                        <td class="text-center">
+                            <span class="text-xs font-weight-bold"><?php echo $patient['treatment_outcome'] ?? 'Active'; ?></span>
+                        </td>
                     </tr>
-                    <tr>
-                      <td>
-                        <div class="d-flex px-2 py-1">
-                          <div class="d-flex flex-column justify-content-center">
-                            <h6 class="mb-0 text-sm">Kuya Kuy</h6>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex flex-column justify-content-center">
-                          <h6 class="mb-0 text-sm">San Teodoro, Binalbagan</h6>
-                        </div>
-                      </td>
-                      <td class="align-middle text-center text-sm">
-                        <span class="text-xs font-weight-bold"> 24 </span>
-                      </td>
-                      <td class="text-center">
-                        <span class="text-xs font-weight-bold"> Discharge </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <div class="d-flex px-2 py-1">
-                          <div class="d-flex flex-column justify-content-center">
-                            <h6 class="mb-0 text-sm">Kuya Kuy</h6>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex flex-column justify-content-center">
-                          <h6 class="mb-0 text-sm">San Teodoro, Binalbagan</h6>
-                        </div>
-                      </td>
-                      <td class="align-middle text-center text-sm">
-                        <span class="text-xs font-weight-bold"> 24 </span>
-                      </td>
-                      <td class="text-center">
-                        <span class="text-xs font-weight-bold"> Discharge </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <div class="d-flex px-2 py-1">
-                          <div class="d-flex flex-column justify-content-center">
-                            <h6 class="mb-0 text-sm">Kuya Kuy</h6>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex flex-column justify-content-center">
-                          <h6 class="mb-0 text-sm">San Teodoro, Binalbagan</h6>
-                        </div>
-                      </td>
-                      <td class="align-middle text-center text-sm">
-                        <span class="text-xs font-weight-bold"> 24 </span>
-                      </td>
-                      <td class="text-center">
-                        <span class="text-xs font-weight-bold"> Discharge </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <div class="d-flex px-2 py-1">
-                          <div class="d-flex flex-column justify-content-center">
-                            <h6 class="mb-0 text-sm">Kuya Kuy</h6>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="d-flex flex-column justify-content-center">
-                          <h6 class="mb-0 text-sm">San Teodoro, Binalbagan</h6>
-                        </div>
-                      </td>
-                      <td class="align-middle text-center text-sm">
-                        <span class="text-xs font-weight-bold"> 24 </span>
-                      </td>
-                      <td class="text-center">
-                        <span class="text-xs font-weight-bold"> Discharge </span>
-                      </td>
-                    </tr>
+                    <?php endwhile; ?>
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-4 col-md-6">
+        <!-- <div class="col-lg-4 col-md-6">
           <div class="card h-100">
             <div class="card-header pb-0">
               <h6>Performance overview</h6>
@@ -363,7 +422,7 @@ include_once('head.php');
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
       </div>
       <?php
         include_once('footer.php');
@@ -546,9 +605,9 @@ include_once('head.php');
     new Chart(ctx3, {
       type: "line",
       data: {
-        labels: ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        labels: <?php echo $healedLabels; ?>,
         datasets: [{
-          label: "Mobile apps",
+          label: "Healed Patients",
           tension: 0,
           borderWidth: 0,
           pointRadius: 5,
@@ -558,9 +617,8 @@ include_once('head.php');
           borderWidth: 4,
           backgroundColor: "transparent",
           fill: true,
-          data: [50, 40, 300, 220, 500, 250, 400, 230, 500],
+          data: <?php echo $healedData; ?>,
           maxBarThickness: 6
-
         }],
       },
       options: {
