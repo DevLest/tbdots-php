@@ -46,6 +46,14 @@ $locations = $conn->query($locationsSql);
 $physiciansSql = "SELECT * FROM users WHERE role = 3";
 $physicians = $conn->query($physiciansSql);
 
+// Add this query near the top with other queries
+$lastCaseNumberSql = "SELECT MAX(CAST(SUBSTRING(case_number, 5) AS UNSIGNED)) as last_number 
+                      FROM tb_treatment_cards 
+                      WHERE case_number LIKE CONCAT(YEAR(CURRENT_DATE), '-%')";
+$lastCaseResult = $conn->query($lastCaseNumberSql);
+$lastNumber = $lastCaseResult->fetch_assoc()['last_number'] ?? 0;
+$newCaseNumber = date('Y') . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+
 // Handle form submissions
 if($_SERVER["REQUEST_METHOD"] == "POST") {
     if(isset($_POST['case_number'])) {
@@ -530,7 +538,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="col-md-4">
                       <div class="form-group mb-2">
                         <label>TB Case Number</label>
-                        <input type="text" class="form-control" name="case_number" required>
+                          <input type="text" class="form-control" name="case_number" value="<?php echo $newCaseNumber; ?>" readonly>
                       </div>
                     </div>
                     <div class="col-md-4">

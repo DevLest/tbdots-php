@@ -113,14 +113,18 @@ include_once('head.php');
                     <label class="form-label">Username</label>
                     <input type="text" id="username" name="username" class="form-control">
                   </div>
+                  <?php if(!empty($username_err)): ?>
+                    <div class="text-danger text-xs"><?php echo $username_err; ?></div>
+                  <?php endif; ?>
+                  
                   <div class="input-group input-group-outline mb-3">
                     <label class="form-label">Password</label>
                     <input type="password" id="password" name="password" class="form-control">
                   </div>
-                  <!-- <div class="form-check form-switch d-flex align-items-center mb-3">
-                    <input class="form-check-input" type="checkbox" id="rememberMe" checked>
-                    <label class="form-check-label mb-0 ms-3" for="rememberMe">Remember me</label>
-                  </div> -->
+                  <?php if(!empty($password_err)): ?>
+                    <div class="text-danger text-xs"><?php echo $password_err; ?></div>
+                  <?php endif; ?>
+                  
                   <div class="text-center">
                     <button type="submit" class="btn bg-gradient-primary w-100 my-4 mb-2">Sign in</button>
                   </div>
