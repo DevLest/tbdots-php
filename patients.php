@@ -10,6 +10,21 @@ require_once "connection/db.php";
 require_once "functions/log_activity.php";
 include_once('head.php');
 
+// Initialize variables
+$fullname = '';
+$dob = '';
+$location = null;
+$age = 0;
+$gender = 0;
+$contact = '';
+$address = '';
+$physician = null;
+$height = null;
+$occupation = '';
+$phil_health_no = '';
+$contact_person = '';
+$contact_person_no = '';
+
 if($_SERVER["REQUEST_METHOD"] == "POST"){
 
   if(isset($_POST["location"]) && !empty(trim($_POST["location"]))){
@@ -91,27 +106,83 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     }
   }
 
-  if(isset($_POST["delete_id"]) && !empty(trim($_POST["delete_id"]))){
+  if (isset($_POST["delete_id"]) && !empty(trim($_POST["delete_id"]))) {
     $delete_id = trim($_POST["delete_id"]);
-    $sql = "DELETE FROM patients WHERE id = '$delete_id'";
-    $deleteUser = $conn->query($sql);
 
-    // Get patient name before deletion
-    $stmt = $conn->prepare("SELECT fullname FROM patients WHERE id = ?");
-    $stmt->bind_param('i', $_POST['delete_id']);
+    // Check if there are related lab results
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM lab_results WHERE patient_id = ?");
+    $stmt->bind_param('i', $delete_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    $patient = $result->fetch_assoc();
-    
-    logActivity(
-        $conn, 
-        $_SESSION['user_id'], 
-        'DELETE', 
-        'patients', 
-        $_POST['delete_id'], 
-        "Deleted patient: " . $patient['fullname']
-    );
+    $labResults = $result->fetch_assoc();
+
+    if ($labResults['count'] > 0) {
+        echo "<div class='alert alert-danger'>Cannot delete patient. There are related lab results associated with this patient.</div>";
+    } else {
+        // Proceed to delete the patient
+        $stmt = $conn->prepare("DELETE FROM patients WHERE id = ?");
+        $stmt->bind_param('i', $delete_id);
+        $stmt->execute();
+
+        // Get patient name before deletion for logging
+        $stmt = $conn->prepare("SELECT fullname FROM patients WHERE id = ?");
+        $stmt->bind_param('i', $delete_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $patient = $result->fetch_assoc();
+
+        if ($patient) {
+            logActivity(
+                $conn,
+                $_SESSION['user_id'],
+                'DELETE',
+                'patients',
+                $delete_id,
+                "Deleted patient: " . $patient['fullname']
+            );
+        }
+    }
   }
+
+  if ($fullname && $dob && $location) {
+        // Check if the patient already exists
+        $stmt = $conn->prepare("SELECT id FROM patients WHERE fullname = ? AND dob = ? AND location_id = ?");
+        $stmt->bind_param('ssi', $fullname, $dob, $location);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $existingPatient = $result->fetch_assoc();
+
+        if ($existingPatient) {
+            // Update existing patient
+            $id = $existingPatient['id'];
+            $sql = "UPDATE patients SET 
+                    age = ?, 
+                    gender = ?, 
+                    contact = ?, 
+                    address = ?, 
+                    physician_id = ?, 
+                    height = ?, 
+                    occupation = ?, 
+                    phil_health_no = ?, 
+                    contact_person = ?, 
+                    contact_person_no = ?
+                    WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param('iississsssi', $age, $gender, $contact, $address, $physician, $height, $occupation, $phil_health_no, $contact_person, $contact_person_no, $id);
+        } else {
+            // Insert new patient
+            $sql = "INSERT INTO patients (fullname, age, gender, contact, address, physician_id, location_id, height, dob, occupation, phil_health_no, contact_person, contact_person_no) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param('siisssiisssss', $fullname, $age, $gender, $contact, $address, $physician, $location, $height, $dob, $occupation, $phil_health_no, $contact_person, $contact_person_no);
+        }
+
+        if ($stmt->execute()) {
+            $action = $existingPatient ? 'UPDATE' : 'CREATE';
+            $patientId = $existingPatient ? $id : $stmt->insert_id;
+            logActivity($conn, $_SESSION['user_id'], $action, 'patients', $patientId, ($action == 'UPDATE' ? "Updated" : "Added") . " patient: $fullname");
+        }
+    }
 }
 
 // Add location filter query
@@ -387,6 +458,17 @@ $physicians = $conn->query($physicianssql);
     padding: 0.5rem 1.5rem;
     font-size: 0.875rem;
     text-transform: uppercase;
+  }
+
+  .alert {
+    position: relative;
+    z-index: 1050;
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
   }
 </style>
 
