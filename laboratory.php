@@ -285,6 +285,92 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             exit;
         }
     }
+
+    // Get the lab_results_id (either from INSERT or existing record)
+    $lab_results_id = isset($_POST['id']) ? $_POST['id'] : $conn->insert_id;
+    
+    // Handle Clinical Examinations
+    if (isset($_POST['examination_date']) && is_array($_POST['examination_date'])) {
+        foreach ($_POST['examination_date'] as $key => $date) {
+            if (empty($date)) continue;
+            
+            $stmt = $conn->prepare("INSERT INTO clinical_examinations (
+                lab_results_id, examination_date, weight, unexplained_fever,
+                unexplained_cough, unimproved_wellbeing, poor_appetite,
+                positive_pe_findings, side_effects
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                weight = VALUES(weight),
+                unexplained_fever = VALUES(unexplained_fever),
+                unexplained_cough = VALUES(unexplained_cough),
+                unimproved_wellbeing = VALUES(unimproved_wellbeing),
+                poor_appetite = VALUES(poor_appetite),
+                positive_pe_findings = VALUES(positive_pe_findings),
+                side_effects = VALUES(side_effects)");
+            
+            $fever = isset($_POST['fever'][$key]) ? 1 : 0;
+            $cough = isset($_POST['cough'][$key]) ? 1 : 0;
+            $wellbeing = isset($_POST['wellbeing'][$key]) ? 1 : 0;
+            $appetite = isset($_POST['appetite'][$key]) ? 1 : 0;
+            $pe_findings = isset($_POST['pe_findings'][$key]) ? 1 : 0;
+            
+            $stmt->bind_param("isdiiiiii",
+                $lab_results_id,
+                $date,
+                $_POST['weight'][$key],
+                $fever,
+                $cough,
+                $wellbeing,
+                $appetite,
+                $pe_findings,
+                $_POST['side_effects'][$key]
+            );
+            $stmt->execute();
+        }
+    }
+    
+    // Handle Drug Administrations
+    if (isset($_POST['administration_date']) && is_array($_POST['administration_date'])) {
+        foreach ($_POST['administration_date'] as $key => $date) {
+            if (empty($date)) continue;
+            
+            $stmt = $conn->prepare("INSERT INTO drug_administrations (
+                lab_results_id, administration_date,
+                isoniazid_dosage, isoniazid_given,
+                rifampicin_dosage, rifampicin_given,
+                pyrazinamide_dosage, pyrazinamide_given,
+                ethambutol_dosage, ethambutol_given,
+                streptomycin_dosage, streptomycin_given
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                isoniazid_dosage = VALUES(isoniazid_dosage),
+                isoniazid_given = VALUES(isoniazid_given),
+                rifampicin_dosage = VALUES(rifampicin_dosage),
+                rifampicin_given = VALUES(rifampicin_given),
+                pyrazinamide_dosage = VALUES(pyrazinamide_dosage),
+                pyrazinamide_given = VALUES(pyrazinamide_given),
+                ethambutol_dosage = VALUES(ethambutol_dosage),
+                ethambutol_given = VALUES(ethambutol_given),
+                streptomycin_dosage = VALUES(streptomycin_dosage),
+                streptomycin_given = VALUES(streptomycin_given)");
+            
+            $stmt->bind_param("isdsdsdsdsds",
+                $lab_results_id,
+                $date,
+                $_POST['isoniazid_dosage'][$key],
+                $_POST['isoniazid_given'][$key],
+                $_POST['rifampicin_dosage'][$key],
+                $_POST['rifampicin_given'][$key],
+                $_POST['pyrazinamide_dosage'][$key],
+                $_POST['pyrazinamide_given'][$key],
+                $_POST['ethambutol_dosage'][$key],
+                $_POST['ethambutol_given'][$key],
+                $_POST['streptomycin_dosage'][$key],
+                $_POST['streptomycin_given'][$key]
+            );
+            $stmt->execute();
+        }
+    }
 }
 ?>
 <!-- Add this in the head section or in your CSS file -->
@@ -935,6 +1021,137 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                   </div>
                 </div>
               </div>
+
+              <div class="card mb-3">
+                <div class="card-header">Clinical Examination</div>
+                <div class="card-body">
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>Date Examined/Results</th>
+                        <th>Initial</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>5</th>
+                        <th>6</th>
+                        <th>7</th>
+                        <th>8</th>
+                        <th>9</th>
+                        <th>10</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Weight in Kg.</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="number" step="0.01" class="form-control form-control-sm" name="weight[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Unexplained fever >2 wks</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="checkbox" name="fever_<?php echo $i; ?>"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Unexplained cough/wheezing >2wks</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="checkbox" name="cough_<?php echo $i; ?>"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Unimproved general well being</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="checkbox" name="well_being_<?php echo $i; ?>"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Poor appetite</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="checkbox" name="appetite_<?php echo $i; ?>"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Positive PE findings for Extra-pulmonary TB</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="checkbox" name="pe_findings_<?php echo $i; ?>"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Side Effects**</td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="text" class="form-control form-control-sm" name="side_effects[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <small class="text-muted">
+                    ** 1-fatigue, 2-nausea/vomiting, 3-abdominal pain, 4-reddish urine or tears, 5-numbness, 6-visual changes, 7-skin changes, 8-jaundice, 9-enlarged liver, 10-others
+                  </small>
+                </div>
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header">Drug Administration</div>
+                <div class="card-body">
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>Drug Name</th>
+                        <th>Dosage</th>
+                        <th>Initial</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>5</th>
+                        <th>6</th>
+                        <th>7</th>
+                        <th>8</th>
+                        <th>9</th>
+                        <th>10</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Isoniazid [H] 10mg/kg (300mg/5ml)</td>
+                        <td><input type="text" class="form-control form-control-sm" name="isoniazid_dosage" placeholder="ml"></td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="text" class="form-control form-control-sm" name="isoniazid[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Rifampicin [R] 15mg/kg (200mg/5ml)</td>
+                        <td><input type="text" class="form-control form-control-sm" name="rifampicin_dosage" placeholder="ml"></td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="text" class="form-control form-control-sm" name="rifampicin[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Pyrazinamide [Z] 30mg/kg (250mg/5ml)</td>
+                        <td><input type="text" class="form-control form-control-sm" name="pyrazinamide_dosage" placeholder="ml"></td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="text" class="form-control form-control-sm" name="pyrazinamide[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Ethambutol [E] 20mg/kg (400mg/tab)</td>
+                        <td><input type="text" class="form-control form-control-sm" name="ethambutol_dosage" placeholder="tab"></td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="text" class="form-control form-control-sm" name="ethambutol[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                      <tr>
+                        <td>Streptomycin [S] 15mg/kg (1g/vial)</td>
+                        <td><input type="text" class="form-control form-control-sm" name="streptomycin_dosage" placeholder="ml"></td>
+                        <?php for($i = 0; $i < 11; $i++): ?>
+                        <td><input type="text" class="form-control form-control-sm" name="streptomycin[]"></td>
+                        <?php endfor; ?>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -1255,6 +1472,79 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 hideLoading();
                 alert('Error loading laboratory record: ' + error.message);
             });
+    }
+
+    // Add this to your existing JavaScript where you handle form population
+    function populateLabForm(data) {
+        // ... existing form population code ...
+        
+        // Populate clinical examinations
+        if (data.clinical_data && data.clinical_data.length > 0) {
+            data.clinical_data.forEach((exam, index) => {
+                if (index > 0) addExaminationRow(); // Add new row if needed
+                
+                const row = document.querySelector(`#examination-row-${index}`);
+                if (row) {
+                    row.querySelector('[name="examination_date[]"]').value = exam.examination_date;
+                    row.querySelector('[name="weight[]"]').value = exam.weight;
+                    row.querySelector('[name="fever[]"]').checked = exam.unexplained_fever == 1;
+                    row.querySelector('[name="cough[]"]').checked = exam.unexplained_cough == 1;
+                    row.querySelector('[name="wellbeing[]"]').checked = exam.unimproved_wellbeing == 1;
+                    row.querySelector('[name="appetite[]"]').checked = exam.poor_appetite == 1;
+                    row.querySelector('[name="pe_findings[]"]').checked = exam.positive_pe_findings == 1;
+                    row.querySelector('[name="side_effects[]"]').value = exam.side_effects;
+                }
+            });
+        }
+        
+        // Populate drug administrations
+        if (data.drug_data && data.drug_data.length > 0) {
+            data.drug_data.forEach((drug, index) => {
+                if (index > 0) addDrugRow(); // Add new row if needed
+                
+                const row = document.querySelector(`#drug-row-${index}`);
+                if (row) {
+                    row.querySelector('[name="administration_date[]"]').value = drug.administration_date;
+                    row.querySelector('[name="isoniazid_dosage[]"]').value = drug.isoniazid_dosage;
+                    row.querySelector('[name="isoniazid_given[]"]').value = drug.isoniazid_given;
+                    // ... repeat for other drugs ...
+                }
+            });
+        }
+    }
+
+    function addExaminationRow() {
+        const container = document.querySelector('#clinical-examinations-container');
+        const rowCount = container.querySelectorAll('.examination-row').length;
+        
+        const newRow = document.createElement('div');
+        newRow.className = 'examination-row';
+        newRow.id = `examination-row-${rowCount}`;
+        newRow.innerHTML = `
+            <input type="date" name="examination_date[]" required>
+            <input type="number" step="0.01" name="weight[]">
+            <input type="checkbox" name="fever[]">
+            <!-- Add other fields as needed -->
+        `;
+        
+        container.appendChild(newRow);
+    }
+
+    function addDrugRow() {
+        const container = document.querySelector('#drug-administrations-container');
+        const rowCount = container.querySelectorAll('.drug-row').length;
+        
+        const newRow = document.createElement('div');
+        newRow.className = 'drug-row';
+        newRow.id = `drug-row-${rowCount}`;
+        newRow.innerHTML = `
+            <input type="date" name="administration_date[]" required>
+            <input type="number" step="0.01" name="isoniazid_dosage[]">
+            <input type="text" name="isoniazid_given[]">
+            <!-- Add other fields as needed -->
+        `;
+        
+        container.appendChild(newRow);
     }
   </script>
   <div class="modal fade" id="viewTreatmentCardModal" tabindex="-1" aria-labelledby="viewTreatmentCardModalLabel" aria-hidden="true">

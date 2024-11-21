@@ -123,8 +123,8 @@ $annualChange = $previousYearPatients['count'] > 0
     ? round((($totalAnnualPatients['count'] - $previousYearPatients['count']) / $previousYearPatients['count']) * 100, 1)
     : 0;
 
-// Add this query near your other statistics queries
-$healedPatients = $conn->query("
+// Debugging: Print the query to ensure it's correct
+$query = "
     SELECT 
         DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
         DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
@@ -136,8 +136,25 @@ $healedPatients = $conn->query("
     $locationCondition
     GROUP BY DATE_FORMAT(l.treatment_outcome_date, '%Y-%m'), 
              DATE_FORMAT(l.treatment_outcome_date, '%b')
-    ORDER BY month_year ASC
-")->fetch_all(MYSQLI_ASSOC);
+    ORDER BY month_year ASC";
+
+// Execute the query
+$result = $conn->query($query);
+
+// Check for query errors
+if (!$result) {
+    die("Query failed: " . $conn->error);
+}
+
+// Fetch the data
+$healedPatients = $result->fetch_all(MYSQLI_ASSOC);
+
+// Debugging: Print the fetched data
+if (empty($healedPatients)) {
+    echo "No data found.";
+} else {
+    print_r($healedPatients);
+}
 
 // Create arrays for labels and data
 $healedLabels = [];

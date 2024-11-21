@@ -37,10 +37,31 @@ try {
         $labData['household_members'][] = $member;
     }
     
-    echo json_encode([
+    // Get clinical examinations
+    $stmt = $conn->prepare("SELECT * FROM clinical_examinations 
+                           WHERE lab_results_id = ? 
+                           ORDER BY examination_date");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $clinicalData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Get drug administrations
+    $stmt = $conn->prepare("SELECT * FROM drug_administrations 
+                           WHERE lab_results_id = ? 
+                           ORDER BY administration_date");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $drugData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    $response = [
         'success' => true,
-        'data' => $labData
-    ]);
+        'data' => $labData,
+        'clinical_data' => $clinicalData,
+        'drug_data' => $drugData
+    ];
+    
+    echo json_encode($response);
+    exit;
 
 } catch (Exception $e) {
     echo json_encode([
