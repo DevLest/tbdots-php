@@ -28,11 +28,38 @@ $locationsQuery = "
     ORDER BY m.location, b.name";
 $locations = $conn->query($locationsQuery);
 
-// Get selected municipality from URL parameter
+// Get selected filters from URL parameters
 $selectedMunicipality = isset($_GET['municipality']) ? (int)$_GET['municipality'] : 0;
+$selectedBarangay = isset($_GET['barangay']) ? (int)$_GET['barangay'] : 0;
+$selectedAgeRange = isset($_GET['age_range']) ? $_GET['age_range'] : '';
+$selectedGender = isset($_GET['gender']) ? $_GET['gender'] : '';
 
-// Modify the location condition for all queries to use municipality
+// Build filter conditions
 $municipalityCondition = $selectedMunicipality > 0 ? "AND m.id = $selectedMunicipality" : "";
+$barangayCondition = $selectedBarangay > 0 ? "AND b.id = $selectedBarangay" : "";
+$genderCondition = $selectedGender ? "AND p.gender = '$selectedGender'" : "";
+
+// Age range condition
+$ageCondition = "";
+if ($selectedAgeRange) {
+    switch ($selectedAgeRange) {
+        case '0-14':
+            $ageCondition = "AND p.age BETWEEN 0 AND 14";
+            break;
+        case '15-24':
+            $ageCondition = "AND p.age BETWEEN 15 AND 24";
+            break;
+        case '25-54':
+            $ageCondition = "AND p.age BETWEEN 25 AND 54";
+            break;
+        case '55+':
+            $ageCondition = "AND p.age >= 55";
+            break;
+    }
+}
+
+// Combine all conditions
+$filterConditions = "$municipalityCondition $barangayCondition $genderCondition $ageCondition";
 
 // Get statistics for the cards
 $thisWeekPatients = $conn->query("
@@ -40,8 +67,9 @@ $thisWeekPatients = $conn->query("
     FROM patients p
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE p.created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $totalConfined = $conn->query("
@@ -50,8 +78,9 @@ $totalConfined = $conn->query("
     JOIN patients p ON lr.patient_id = p.id
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE lr.treatment_outcome IS NULL
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $newPatients = $conn->query("
@@ -59,8 +88,9 @@ $newPatients = $conn->query("
     FROM patients p
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE p.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $totalAnnualPatients = $conn->query("
@@ -68,8 +98,9 @@ $totalAnnualPatients = $conn->query("
     FROM patients p
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE p.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 // Get recent patients for the table
@@ -82,7 +113,7 @@ $recentPatientsSql = "
     JOIN municipalities m ON l.municipality_id = m.id
     JOIN barangays b ON l.barangay_id = b.id
     WHERE 1=1 
-    $municipalityCondition
+    $filterConditions
     ORDER BY p.created_at DESC 
     LIMIT 10";
 
@@ -94,9 +125,10 @@ $lastWeekPatients = $conn->query("
     FROM patients p
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE p.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 WEEK), INTERVAL 1 WEEK)
     AND p.created_at < DATE_SUB(NOW(), INTERVAL 1 WEEK)
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $weeklyChange = $lastWeekPatients['count'] > 0 
@@ -110,10 +142,11 @@ $lastMonthConfined = $conn->query("
     JOIN patients p ON l.patient_id = p.id
     JOIN locations loc ON p.location_id = loc.id
     JOIN municipalities m ON loc.municipality_id = m.id
+    JOIN barangays b ON loc.barangay_id = b.id
     WHERE l.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL 1 MONTH)
     AND l.created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)
     AND l.treatment_outcome IS NULL
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $confinedChange = $lastMonthConfined['count'] > 0
@@ -126,9 +159,10 @@ $previousDayPatients = $conn->query("
     FROM patients p
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE p.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 24 HOUR), INTERVAL 24 HOUR)
     AND p.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $dailyChange = $previousDayPatients['count'] > 0
@@ -141,9 +175,10 @@ $previousYearPatients = $conn->query("
     FROM patients p
     JOIN locations l ON p.location_id = l.id
     JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE p.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 YEAR), INTERVAL 1 YEAR)
     AND p.created_at < DATE_SUB(NOW(), INTERVAL 1 YEAR)
-    $municipalityCondition
+    $filterConditions
 ")->fetch_assoc();
 
 $annualChange = $previousYearPatients['count'] > 0
@@ -160,9 +195,10 @@ $query = "
     JOIN patients p ON l.patient_id = p.id
     JOIN locations loc ON p.location_id = loc.id
     JOIN municipalities m ON loc.municipality_id = m.id
+    JOIN barangays b ON loc.barangay_id = b.id
     WHERE l.treatment_outcome = 'CURED'
     AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
-    $municipalityCondition
+    $filterConditions
     GROUP BY DATE_FORMAT(l.treatment_outcome_date, '%Y-%m'), 
              DATE_FORMAT(l.treatment_outcome_date, '%b')
     ORDER BY month_year ASC";
@@ -215,9 +251,10 @@ $treatmentOutcomesQuery = "
     JOIN patients p ON l.patient_id = p.id
     JOIN locations loc ON p.location_id = loc.id
     JOIN municipalities m ON loc.municipality_id = m.id
+    JOIN barangays b ON loc.barangay_id = b.id
     WHERE l.treatment_outcome IS NOT NULL
     AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
-    $municipalityCondition
+    $filterConditions
     GROUP BY 
         l.treatment_outcome, 
         DATE_FORMAT(l.treatment_outcome_date, '%b'),
@@ -300,22 +337,66 @@ $gradients = [
           <div class="card">
             <div class="card-body p-3">
               <form method="GET" class="row align-items-center">
-                <div class="col-md-10">
-                  <select name="municipality" class="form-select" onchange="this.form.submit()">
-                    <option value="0">All Municipalities</option>
-                    <?php 
-                    $municipalitiesQuery = "SELECT DISTINCT m.id, m.location FROM municipalities m ORDER BY m.location";
-                    $municipalities = $conn->query($municipalitiesQuery);
-                    while($mun = $municipalities->fetch_assoc()): 
-                    ?>
-                      <option value="<?php echo $mun['id']; ?>" <?php echo $selectedMunicipality == $mun['id'] ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($mun['location']); ?>
-                      </option>
-                    <?php endwhile; ?>
-                  </select>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Municipality</label>
+                    <select name="municipality" class="form-select" onchange="updateBarangays(this.value)">
+                        <option value="0">All Municipalities</option>
+                        <?php 
+                        $municipalitiesQuery = "SELECT DISTINCT m.id, m.location FROM municipalities m ORDER BY m.location";
+                        $municipalities = $conn->query($municipalitiesQuery);
+                        while($mun = $municipalities->fetch_assoc()): 
+                        ?>
+                            <option value="<?php echo $mun['id']; ?>" <?php echo $selectedMunicipality == $mun['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($mun['location']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
-                <div class="col-md-2">
-                  <a href="dashboard.php" class="btn btn-outline-secondary w-100">Reset</a>
+                
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Barangay</label>
+                    <select name="barangay" class="form-select" id="barangaySelect">
+                        <option value="0">All Barangays</option>
+                        <?php if ($selectedMunicipality > 0): 
+                            $barangaysQuery = "SELECT b.id, b.name FROM barangays b 
+                                         JOIN locations l ON l.barangay_id = b.id 
+                                         WHERE l.municipality_id = $selectedMunicipality 
+                                         ORDER BY b.name";
+                            $barangays = $conn->query($barangaysQuery);
+                            while($bar = $barangays->fetch_assoc()): 
+                        ?>
+                            <option value="<?php echo $bar['id']; ?>" <?php echo $selectedBarangay == $bar['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($bar['name']); ?>
+                            </option>
+                        <?php endwhile; endif; ?>
+                    </select>
+                </div>
+
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Age Range</label>
+                    <select name="age_range" class="form-select">
+                        <option value="">All Ages</option>
+                        <option value="0-14" <?php echo $selectedAgeRange == '0-14' ? 'selected' : ''; ?>>0-14 years</option>
+                        <option value="15-24" <?php echo $selectedAgeRange == '15-24' ? 'selected' : ''; ?>>15-24 years</option>
+                        <option value="25-54" <?php echo $selectedAgeRange == '25-54' ? 'selected' : ''; ?>>25-54 years</option>
+                        <option value="55+" <?php echo $selectedAgeRange == '55+' ? 'selected' : ''; ?>>55+ years</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2 mb-3">
+                    <label class="form-label">Gender</label>
+                    <select name="gender" class="form-select">
+                        <option value="">All Genders</option>
+                        <option value="M" <?php echo $selectedGender == 'M' ? 'selected' : ''; ?>>Male</option>
+                        <option value="F" <?php echo $selectedGender == 'F' ? 'selected' : ''; ?>>Female</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2 mb-3 d-flex align-items-end">
+                    <div class="w-100">
+                        <button type="submit" class="btn btn-primary w-100 mb-2">Apply Filters</button>
+                        <a href="dashboard.php" class="btn btn-outline-secondary w-100">Reset</a>
+                    </div>
                 </div>
               </form>
             </div>
@@ -628,6 +709,25 @@ $gradients = [
       form.appendChild(input);
       document.body.appendChild(form);
       form.submit();
+  }
+  </script>
+  <script>
+  function updateBarangays(municipalityId) {
+      const barangaySelect = document.getElementById('barangaySelect');
+      barangaySelect.innerHTML = '<option value="0">All Barangays</option>';
+      
+      if (municipalityId > 0) {
+          fetch(`get_barangays.php?municipality_id=${municipalityId}`)
+              .then(response => response.json())
+              .then(barangays => {
+                  barangays.forEach(barangay => {
+                      const option = document.createElement('option');
+                      option.value = barangay.id;
+                      option.textContent = barangay.name;
+                      barangaySelect.appendChild(option);
+                  });
+              });
+      }
   }
   </script>
 </body>
