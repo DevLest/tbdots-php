@@ -14,12 +14,13 @@ include_once('head.php');
 if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['role_id'])) {
     try {
         $role_id = $_POST['role_id'];
-        // Convert selected modules array to JSON string
-        $modules = isset($_POST['modules']) ? json_encode($_POST['modules']) : '[]';
+        // Convert selected modules to integers before JSON encoding
+        $modules = isset($_POST['modules']) ? array_map('intval', $_POST['modules']) : [];
+        $modules_json = json_encode($modules);
         
         $sql = "UPDATE roles SET module = ? WHERE id = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("si", $modules, $role_id);
+        $stmt->bind_param("si", $modules_json, $role_id);
         
         if($stmt->execute()) {
             logActivity($conn, $_SESSION['user_id'], 'UPDATE', 'roles', $role_id, 
@@ -187,8 +188,10 @@ while($module = $modules->fetch_assoc()) {
                 checkbox.checked = false;
             });
             
-            // Check the modules assigned to this role
-            const modules = JSON.parse(role.module);
+            // Parse modules and ensure they're integers
+            let modules = JSON.parse(role.module);
+            modules = modules.map(Number);  // Convert all values to numbers
+            
             modules.forEach(moduleId => {
                 const checkbox = document.getElementById('module_' + moduleId);
                 if (checkbox) {

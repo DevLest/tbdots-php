@@ -1,71 +1,83 @@
 <?php
-require_once 'connection/db.php';
+session_start();
+require_once('connection/db.php');
+
+header('Content-Type: application/json');
+
+if (!isset($_GET['id'])) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'No ID provided'
+    ]);
+    exit;
+}
 
 try {
-    if (!isset($_GET['id'])) {
-        throw new Exception('Laboratory record ID is required');
-    }
-
-    $id = intval($_GET['id']);
-    
-    $sql = "SELECT lr.*, p.fullname, p.age, p.gender, p.address, p.contact, p.dob,
-            p.height, p.bcg_scar, p.occupation, p.phil_health_no, p.contact_person,
-            p.contact_person_no
-            FROM lab_results lr
-            JOIN patients p ON lr.patient_id = p.id 
-            WHERE lr.id = ?";
+    // Get the main laboratory record
+    $sql = "SELECT l.*, p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
+            p.height, p.occupation, p.phil_health_no, p.contact_person, 
+            p.contact_person_no as contact_number,
+            h.*,
+            dh.has_history, dh.duration, dh.drugs_taken
+            FROM lab_results l 
+            LEFT JOIN patients p ON l.patient_id = p.id 
+            LEFT JOIN household_members h ON l.id = h.lab_results_id
+            LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
+            WHERE l.id = ?";
             
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $id);
+    $stmt->bind_param("i", $_GET['id']);
     $stmt->execute();
     $result = $stmt->get_result();
-    
-    if ($result->num_rows === 0) {
-        throw new Exception('Laboratory record not found');
-    }
-    
     $labData = $result->fetch_assoc();
-    
-    $householdSql = "SELECT * FROM household_members WHERE treatment_card_id = ?";
-    $householdStmt = $conn->prepare($householdSql);
-    $householdStmt->bind_param("i", $id);
-    $householdStmt->execute();
-    $householdResult = $householdStmt->get_result();
-    
-    $labData['household_members'] = [];
-    while ($member = $householdResult->fetch_assoc()) {
-        $labData['household_members'][] = $member;
+
+    if (!$labData) {
+        throw new Exception("Laboratory record not found");
     }
-    
+
+    // Get DSSM results
+    $dssmSql = "SELECT * FROM dssm_results WHERE lab_results_id = ? ORDER BY month";
+    $dssmStmt = $conn->prepare($dssmSql);
+    $dssmStmt->bind_param("i", $_GET['id']);
+    $dssmStmt->execute();
+    $dssmResult = $dssmStmt->get_result();
+    $labData['dssm_results'] = [];
+    while ($row = $dssmResult->fetch_assoc()) {
+        $labData['dssm_results'][] = $row;
+    }
+
     // Get clinical examinations
-    $stmt = $conn->prepare("SELECT * FROM clinical_examinations 
-                           WHERE lab_results_id = ? 
-                           ORDER BY examination_date");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $clinicalData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    
-    // Get drug administrations
-    $stmt = $conn->prepare("SELECT * FROM drug_administrations 
-                           WHERE lab_results_id = ? 
-                           ORDER BY administration_date");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $drugData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    
-    $response = [
+    $examSql = "SELECT * FROM clinical_examinations WHERE lab_results_id = ? ORDER BY examination_date";
+    $examStmt = $conn->prepare($examSql);
+    $examStmt->bind_param("i", $_GET['id']);
+    $examStmt->execute();
+    $examResult = $examStmt->get_result();
+    $labData['clinical_examinations'] = [];
+    while ($row = $examResult->fetch_assoc()) {
+        $labData['clinical_examinations'][] = $row;
+    }
+
+    // Get drug dosages
+    $dosageSql = "SELECT * FROM drug_dosages WHERE lab_results_id = ?";
+    $dosageStmt = $conn->prepare($dosageSql);
+    $dosageStmt->bind_param("i", $_GET['id']);
+    $dosageStmt->execute();
+    $dosageResult = $dosageStmt->get_result();
+    $labData['drug_dosages'] = [];
+    while ($row = $dosageResult->fetch_assoc()) {
+        $labData['drug_dosages'][] = $row;
+    }
+
+    // Return success response
+    echo json_encode([
         'success' => true,
-        'data' => $labData,
-        'clinical_data' => $clinicalData,
-        'drug_data' => $drugData
-    ];
-    
-    echo json_encode($response);
-    exit;
+        'data' => $labData
+    ]);
 
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
     ]);
-} 
+}
+?> 

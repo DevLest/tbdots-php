@@ -149,13 +149,6 @@ if (!$result) {
 // Fetch the data
 $healedPatients = $result->fetch_all(MYSQLI_ASSOC);
 
-// Debugging: Print the fetched data
-if (empty($healedPatients)) {
-    echo "No data found.";
-} else {
-    print_r($healedPatients);
-}
-
 // Create arrays for labels and data
 $healedLabels = [];
 $healedData = [];
@@ -175,6 +168,52 @@ foreach ($healedPatients as $record) {
 // Convert to JSON for JavaScript
 $healedLabels = json_encode(array_keys($months));
 $healedData = json_encode(array_values($months));
+
+// After the existing healed patients query, add this new query for all treatment outcomes
+$treatmentOutcomesQuery = "
+    SELECT 
+        DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
+        DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
+        l.treatment_outcome,
+        COUNT(*) as count
+    FROM lab_results l
+    JOIN patients p ON l.patient_id = p.id
+    WHERE l.treatment_outcome IN ('CURED', 'TREATMENT COMPLETE', 'TREATMENT FAILED', 'DIED', 'LOST TO FOLLOW UP', 'NOT EVALUATED')
+    AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
+    $locationCondition
+    GROUP BY DATE_FORMAT(l.treatment_outcome_date, '%Y-%m'), 
+             DATE_FORMAT(l.treatment_outcome_date, '%b'),
+             l.treatment_outcome
+    ORDER BY month_year ASC";
+
+$treatmentResults = $conn->query($treatmentOutcomesQuery);
+
+// Initialize arrays for each treatment outcome
+$outcomes = ['CURED', 'TREATMENT COMPLETE', 'TREATMENT FAILED', 'DIED', 'LOST TO FOLLOW UP', 'NOT EVALUATED'];
+$treatmentData = [];
+
+// Get last 9 months
+$months = [];
+for ($i = 8; $i >= 0; $i--) {
+    $month = date('M', strtotime("-$i months"));
+    $months[$month] = 0;
+}
+
+// Initialize data structure
+foreach ($outcomes as $outcome) {
+    $treatmentData[$outcome] = array_merge([], $months);
+}
+
+// Fill in actual data
+while ($record = $treatmentResults->fetch_assoc()) {
+    if (isset($treatmentData[$record['treatment_outcome']][$record['month']])) {
+        $treatmentData[$record['treatment_outcome']][$record['month']] = (int)$record['count'];
+    }
+}
+
+// Convert to JSON for JavaScript
+$monthLabels = json_encode(array_keys($months));
+$treatmentDataJSON = json_encode($treatmentData);
 ?>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -300,66 +339,28 @@ $healedData = json_encode(array_values($months));
         </div>
       </div>
       <div class="row mt-4">
-        <!-- <div class="col-lg-4 col-md-6 mt-4 mb-4">
-          <div class="card z-index-2 ">
+        <?php foreach ($outcomes as $outcome): ?>
+        <div class="col-lg-4 col-md-6 mt-4 mb-4">
+          <div class="card z-index-2">
             <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2 bg-transparent">
               <div class="bg-gradient-primary shadow-primary border-radius-lg py-3 pe-1">
                 <div class="chart">
-                  <canvas id="chart-bars" class="chart-canvas" height="170"></canvas>
+                  <canvas id="chart-<?php echo strtolower(str_replace(' ', '-', $outcome)); ?>" class="chart-canvas" height="170"></canvas>
                 </div>
               </div>
             </div>
             <div class="card-body">
-              <h6 class="mb-0 ">Clinic Visits</h6>
-              <p class="text-sm ">Last Campaign Performance</p>
+              <h6 class="mb-0"><?php echo ucwords(strtolower($outcome)); ?></h6>
+              <p class="text-sm">Monthly statistics</p>
               <hr class="dark horizontal">
-              <div class="d-flex ">
+              <div class="d-flex">
                 <i class="material-icons text-sm my-auto me-1">schedule</i>
-                <p class="mb-0 text-sm"> campaign sent 2 days ago </p>
-              </div>
-            </div>
-          </div>
-        </div> -->
-        <div class="col-lg-4 col-md-6 mt-4 mb-4">
-          <div class="card z-index-2  ">
-            <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2 bg-transparent">
-              <div class="bg-gradient-success shadow-success border-radius-lg py-3 pe-1">
-                <div class="chart">
-                  <canvas id="chart-line" class="chart-canvas" height="170"></canvas>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <h6 class="mb-0 "> Death Toll </h6>
-              <p class="text-sm "> (<span class="font-weight-bolder">+15%</span>) increase in today death count. </p>
-              <hr class="dark horizontal">
-              <div class="d-flex ">
-                <i class="material-icons text-sm my-auto me-1">schedule</i>
-                <p class="mb-0 text-sm"> updated 4 min ago </p>
+                <p class="mb-0 text-sm">updated just now</p>
               </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-4 mt-4 mb-3">
-          <div class="card z-index-2 ">
-            <div class="card-header p-0 position-relative mt-n4 mx-3 z-index-2 bg-transparent">
-              <div class="bg-gradient-dark shadow-dark border-radius-lg py-3 pe-1">
-                <div class="chart">
-                  <canvas id="chart-line-tasks" class="chart-canvas" height="170"></canvas>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <h6 class="mb-0 ">Totally Healed</h6>
-              <p class="text-sm ">Last Campaign Performance</p>
-              <hr class="dark horizontal">
-              <div class="d-flex ">
-                <i class="material-icons text-sm my-auto me-1">schedule</i>
-                <p class="mb-0 text-sm">just updated</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <?php endforeach; ?>
       </div>
       <div class="row mb-4">
         <div class="col-lg-8 col-md-6 mb-md-0 mb-4">
@@ -752,6 +753,101 @@ $healedData = json_encode(array_values($months));
           },
         },
       },
+    });
+
+    const treatmentData = <?php echo $treatmentDataJSON; ?>;
+    const monthLabels = <?php echo $monthLabels; ?>;
+    const colors = {
+      'CURED': 'rgba(76, 175, 80, 0.8)',
+      'TREATMENT COMPLETE': 'rgba(33, 150, 243, 0.8)',
+      'TREATMENT FAILED': 'rgba(244, 67, 54, 0.8)',
+      'DIED': 'rgba(158, 158, 158, 0.8)',
+      'LOST TO FOLLOW UP': 'rgba(255, 152, 0, 0.8)',
+      'NOT EVALUATED': 'rgba(156, 39, 176, 0.8)'
+    };
+
+    Object.entries(treatmentData).forEach(([outcome, data]) => {
+      const canvasId = `chart-${outcome.toLowerCase().replace(/ /g, '-')}`;
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: monthLabels,
+          datasets: [{
+            label: outcome,
+            tension: 0.4,
+            borderWidth: 0,
+            pointRadius: 2,
+            pointBackgroundColor: colors[outcome],
+            pointBorderColor: "transparent",
+            borderColor: colors[outcome],
+            borderWidth: 4,
+            backgroundColor: "transparent",
+            fill: true,
+            data: Object.values(data),
+            maxBarThickness: 6
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false,
+            }
+          },
+          interaction: {
+            intersect: false,
+            mode: 'index',
+          },
+          scales: {
+            y: {
+              grid: {
+                drawBorder: false,
+                display: true,
+                drawOnChartArea: true,
+                drawTicks: false,
+                borderDash: [5, 5],
+                color: 'rgba(255, 255, 255, .2)'
+              },
+              ticks: {
+                display: true,
+                padding: 10,
+                color: '#9ca2b7',
+                font: {
+                  size: 14,
+                  weight: 300,
+                  family: "Roboto",
+                  style: 'normal',
+                  lineHeight: 2
+                },
+              }
+            },
+            x: {
+              grid: {
+                drawBorder: false,
+                display: false,
+                drawOnChartArea: false,
+                drawTicks: false,
+                borderDash: [5, 5]
+              },
+              ticks: {
+                display: true,
+                color: '#9ca2b7',
+                padding: 10,
+                font: {
+                  size: 14,
+                  weight: 300,
+                  family: "Roboto",
+                  style: 'normal',
+                  lineHeight: 2
+                },
+              }
+            },
+          },
+        },
+      });
     });
   </script>
   <script>

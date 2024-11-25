@@ -2,8 +2,8 @@
 session_start();
 
 if(!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
+  header("Location: login.php");
+  exit;
 }
 
 require_once "connection/db.php";
@@ -12,39 +12,48 @@ include_once('head.php');
 
 // Consolidate all queries at the top
 $patientsSqlList = "SELECT 
-                      t.id,
-                      t.case_number,
-                      p.fullname,
-                      p.gender,
-                      p.age,
-                      t.bacteriological_status,
-                      t.diagnosis,
-                      t.treatment_regimen,
-                      t.treatment_outcome,
-                      t.created_at
-                  FROM lab_results t
-                  JOIN patients p ON t.patient_id = p.id
-                  ORDER BY t.created_at DESC";
-                  
+                    t.id,
+                    t.case_number,
+                    p.fullname,
+                    p.gender,
+                    p.age,
+                    t.bacteriological_status,
+                    t.diagnosis,
+                    t.treatment_regimen,
+                    t.treatment_outcome,
+                    t.created_at
+                FROM lab_results  t
+                JOIN patients p ON t.patient_id = p.id
+                ORDER BY t.created_at DESC";
+
 $patientListReturns = $conn->query($patientsSqlList);
 $allPatientsList = $patientListReturns->fetch_all(MYSQLI_ASSOC); // Store all results in array
 
 $patientsSql = "SELECT p.*, m.location as location_name, u.first_name as physician_name,
-    lr.case_number, lr.date_opened, lr.region_province, lr.facility_name,
-    lr.source_of_patient, lr.bacteriological_status, lr.tb_classification,
-    lr.diagnosis, lr.registration_group, lr.treatment_regimen,
-    lr.treatment_started_date, lr.treatment_outcome, lr.treatment_outcome_date
-    FROM patients p 
-    LEFT JOIN municipalities m ON p.location_id = m.id 
-    LEFT JOIN users u ON p.physician_id = u.id
-    LEFT JOIN lab_results lr ON p.lab_results_id = lr.id";
+  lr.case_number, lr.date_opened, lr.region_province, lr.facility_name,
+  lr.source_of_patient, lr.bacteriological_status, lr.tb_classification,
+  lr.diagnosis, lr.registration_group, lr.treatment_regimen,
+  lr.treatment_started_date, lr.treatment_outcome, lr.treatment_outcome_date
+  FROM patients p 
+  LEFT JOIN municipalities m ON p.location_id = m.id 
+  LEFT JOIN users u ON p.physician_id = u.id
+  LEFT JOIN lab_results lr ON p.lab_results_id = lr.id";
+
+// $patientsSql = "SELECT p.*, l.location as location_name, u.first_name as physician_name,
+//       lr.reason_for_examination, lr.history_of_treatment, lr.month_of_treatment, 
+//       lr.test_requested
+//       FROM patients p 
+//       LEFT JOIN locations l ON p.location_id = l.id 
+//       LEFT JOIN users u ON p.physician_id = u.id
+//       LEFT JOIN lab_results lr ON p.lab_results_id = lr.id";
 
 $patientReturns = $conn->query($patientsSql);
 $allPatients = $patientReturns->fetch_all(MYSQLI_ASSOC); // Store all results in array
 
+// $locationsSql = "SELECT id, location as name FROM locations";
 $locationsSql = "SELECT 
-    l.id,
-    CONCAT('Brgy. ', b.name, ', ', m.location) as name 
+  l.id,
+  CONCAT('Brgy. ', b.name, ', ', m.location) as name 
 FROM locations l
 JOIN municipalities m ON l.municipality_id = m.id
 JOIN barangays b ON l.barangay_id = b.id
@@ -57,319 +66,357 @@ $physicians = $conn->query($physiciansSql);
 
 // Add this query near the top with other queries
 $lastCaseNumberSql = "SELECT MAX(CAST(SUBSTRING(case_number, 5) AS UNSIGNED)) as last_number 
-                      FROM lab_results 
-                      WHERE case_number LIKE CONCAT(YEAR(CURRENT_DATE), '-%')";
+                    FROM lab_results  
+                    WHERE case_number LIKE CONCAT(YEAR(CURRENT_DATE), '-%')";
 $lastCaseResult = $conn->query($lastCaseNumberSql);
 $lastNumber = $lastCaseResult->fetch_assoc()['last_number'] ?? 0;
 $newCaseNumber = date('Y') . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
 
 // Handle form submissions
 if($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Handle AJAX update request
-    if (isset($_POST['id']) && !empty($_POST['id']) && isset($_POST['ajax_update'])) {
+  
+    // Check if it's an AJAX update request
+    if (isset($_POST['ajax_update'])) {
+        $response = array();
         try {
-            $data = $_POST;
-            
-            // Handle empty date fields
-            $treatment_started_date = !empty($data['treatment_started_date']) ? $data['treatment_started_date'] : null;
-            $treatment_outcome_date = !empty($data['treatment_outcome_date']) ? $data['treatment_outcome_date'] : null;
-            $date_opened = !empty($data['date_opened']) ? $data['date_opened'] : null;
-
+            // Update lab results record
             $sql = "UPDATE lab_results SET 
-                    case_number = ?,
-                    date_opened = ?,
-                    region_province = ?,
-                    facility_name = ?,
-                    source_of_patient = ?,
-                    bacteriological_status = ?,
-                    tb_classification = ?,
-                    diagnosis = ?,
-                    registration_group = ?,
-                    treatment_regimen = ?,
-                    treatment_started_date = ?,
-                    treatment_outcome = ?,
-                    treatment_outcome_date = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?";
-
+                date_opened = ?,
+                region_province = ?,
+                facility_name = ?,
+                source_of_patient = ?,
+                bacteriological_status = ?,
+                tb_classification = ?,
+                diagnosis = ?,
+                registration_group = ?,
+                treatment_regimen = ?,
+                treatment_started_date = ?,
+                treatment_outcome = ?,
+                treatment_outcome_date = ?
+                WHERE id = ?";
+            
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param(
-                'sssssssssssssi',
-                $data['case_number'],
-                $date_opened,
-                $data['region_province'],
-                $data['facility_name'],
-                $data['source_of_patient'],
-                $data['bacteriological_status'],
-                $data['tb_classification'],
-                $data['diagnosis'],
-                $data['registration_group'],
-                $data['treatment_regimen'],
-                $treatment_started_date,
-                $data['treatment_outcome'],
-                $treatment_outcome_date,
-                $data['id']
+            $stmt->bind_param("ssssssssssssi", 
+                $_POST['date_opened'],
+                $_POST['region_province'],
+                $_POST['facility_name'],
+                $_POST['source_of_patient'],
+                $_POST['bacteriological_status'],
+                $_POST['tb_classification'],
+                $_POST['diagnosis'],
+                $_POST['registration_group'],
+                $_POST['treatment_regimen'],
+                $_POST['treatment_started_date'],
+                $_POST['treatment_outcome'],
+                $_POST['treatment_outcome_date'],
+                $_POST['id']
             );
-
-            if (!$stmt->execute()) {
-                throw new Exception('Error updating laboratory record: ' . $stmt->error);
+            
+            if ($stmt->execute()) {
+                // Log the activity
+                logActivity($conn, $_SESSION['user_id'], 'UPDATE', 'lab_results', $_POST['id'], 'Updated laboratory record #' . $_POST['id']);
+                
+                $response['success'] = true;
+                $response['message'] = 'Record updated successfully';
+            } else {
+                $response['success'] = false;
+                $response['message'] = 'Error updating record';
             }
-
-            // Log the activity
-            $sql = "INSERT INTO activity_logs (user_id, action, table_name, record_id, details) 
-                    VALUES (?, 'UPDATE', 'lab_results', ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $details = "Updated laboratory record #" . $data['id'];
-            $stmt->bind_param('iis', $_SESSION['user_id'], $data['id'], $details);
-            $stmt->execute();
-
-            echo json_encode(['success' => true]);
-            exit;
-
+            
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-            exit;
+            $response['success'] = false;
+            $response['message'] = $e->getMessage();
         }
+        
+        header('Content-Type: application/json');
+        echo json_encode($response);
+        exit;
     }
-
-    if(isset($_POST['case_number'])) {
-        try {
-            $conn->begin_transaction();
-
-            // Map the form values to database enum values
-            $bacteriological_map = [
-                'confirmed' => 'Bacteriologically Confirmed',
-                'clinically' => 'Clinically Diagnosed'
-            ];
-
-            $tb_classification_map = [
-                'pulmonary' => 'Pulmonary',
-                'extra_pulmonary' => 'Extra Pulmonary'
-            ];
-
-            $diagnosis_map = [
-                'TB DISEASE' => 'TB DISEASE',
-                'TB INFECTION' => 'TB INFECTION',
-                'TB EXPOSURE' => 'TB EXPOSURE'
-            ];
-
-            $registration_group_map = [
-                'New' => 'New',
-                'Relapse' => 'Relapse',
-                'Treatment after Failure' => 'Treatment after Failure',
-                'TALF' => 'TALF',
-                'PTOU' => 'PTOU',
-                'Other' => 'Other'
-            ];
-
-            $treatment_outcome_map = [
-                'CURED' => 'CURED',
-                'TREATMENT COMPLETED' => 'TREATMENT COMPLETED',
-                'TREATMENT FAILED' => 'TREATMENT FAILED',
-                'DIED' => 'DIED',
-                'LOST TO FOLLOW UP' => 'LOST TO FOLLOW UP',
-                'NOT EVALUATED' => 'NOT EVALUATED'
-            ];
-
-            // Prepare all variables before binding
-            $case_number = $_POST['case_number'];
-            $date_opened = $_POST['date_opened'];
-            $region_province = $_POST['region_province'] ?? null;
-            $facility_name = $_POST['facility_name'] ?? null;
-            $patient_id = (int)$_POST['patient_id'];
-            $physician_id = (int)$_SESSION['user_id'];
-            $source_patient = $_POST['source_of_patient'] ?? null;
-            
-            // Convert to proper enum values
-            $bact_status = isset($_POST['bacteriological_status']) && $_POST['bacteriological_status'] !== 'Select Bacteriological Status' 
-                ? $bacteriological_map[$_POST['bacteriological_status']] 
-                : null;
-            
-            $tb_class = isset($_POST['tb_classification']) && $_POST['tb_classification'] !== 'Select Classification of TB Disease'
-                ? $tb_classification_map[$_POST['tb_classification']] 
-                : null;
-            
-            $diagnosis = isset($_POST['diagnosis']) && $_POST['diagnosis'] !== 'Select Diagnosis'
-                ? $diagnosis_map[$_POST['diagnosis']] 
-                : null;
-            
-            $reg_group = isset($_POST['registration_group']) 
-                ? $registration_group_map[$_POST['registration_group']] 
-                : null;
-            
-            $treatment_reg = $_POST['treatment_regimen'] ?? null;
-            $treatment_start = !empty($_POST['treatment_started_date']) ? $_POST['treatment_started_date'] : null;
-            $treatment_outcome = isset($_POST['treatment_outcome']) 
-                ? $treatment_outcome_map[$_POST['treatment_outcome']] 
-                : null;
-            $outcome_date = !empty($_POST['treatment_outcome_date']) ? $_POST['treatment_outcome_date'] : null;
-
-            // Debug the transformed values
-            error_log("Transformed values:");
-            error_log("bacteriological_status: " . $bact_status);
-            error_log("tb_classification: " . $tb_class);
-
-            $sql = "INSERT INTO lab_results (
-                case_number, 
-                date_opened, 
-                region_province, 
-                facility_name, 
-                patient_id, 
-                physician_id, 
-                source_of_patient, 
-                bacteriological_status,
-                tb_classification, 
-                diagnosis, 
-                registration_group, 
-                treatment_regimen,
-                treatment_started_date, 
-                treatment_outcome, 
-                treatment_outcome_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-            $stmt = $conn->prepare($sql);
-            
-            // Fix: Use proper type definition for integers
-            $stmt->bind_param('ssssiisssssssss', 
-                $case_number,
-                $date_opened,
-                $region_province,
-                $facility_name,
-                $patient_id,
-                $physician_id,
-                $source_patient,
-                $bact_status,
-                $tb_class,
-                $diagnosis,
-                $reg_group,
-                $treatment_reg,
-                $treatment_start,
-                $treatment_outcome,
-                $outcome_date
-            );
-
-            if (!$stmt->execute()) {
-                throw new Exception("Execute failed: " . $stmt->error);
-            }
-
-            $treatment_card_id = $conn->insert_id;
-
-            // Save household members only if there's valid data
-            if (!empty($_POST['household_name']) && is_array($_POST['household_name'])) {
-                foreach ($_POST['household_name'] as $key => $name) {
-                    if (!empty($name)) {
-                        $householdSql = "INSERT INTO household_members (treatment_card_id, first_name, age, screened) 
-                                       VALUES (?, ?, ?, ?)";
-                        $householdStmt = $conn->prepare($householdSql);
-                        $age = $_POST['household_age'][$key] ?? null;
-                        $screened = isset($_POST['household_screened'][$key]) ? 1 : 0;
-                        $householdStmt->bind_param('isis', $treatment_card_id, $name, $age, $screened);
+    
+    // Handle regular form submission for new records
+    try {
+        // Begin transaction
+        $conn->begin_transaction();
+        
+        // Debug: Print the query and values
+        error_log("Starting lab results insertion...");
+        
+        // Insert into lab_results table
+        $sql = "INSERT INTO lab_results (
+            case_number, 
+            date_opened, 
+            region_province, 
+            patient_id, 
+            physician_id,
+            source_of_patient, 
+            tst_result,
+            cxr_findings,
+            bacteriological_status, 
+            tb_classification,
+            diagnosis, 
+            registration_group, 
+            treatment_regimen,
+            treatment_started_date, 
+            treatment_outcome, 
+            treatment_outcome_date,
+            other_exam,
+            other_exam_date,
+            tbdc
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = $conn->prepare($sql);
+        
+        if (!$stmt) {
+            throw new Exception("Prepare failed: " . $conn->error);
+        }
+        
+        // Handle optional fields with null values if empty
+        $tst_result = !empty($_POST['tst_result']) ? $_POST['tst_result'] : null;
+        $cxr_findings = !empty($_POST['cxr_findings']) ? $_POST['cxr_findings'] : null;
+        $treatment_outcome = !empty($_POST['treatment_outcome']) ? $_POST['treatment_outcome'] : null;
+        $treatment_outcome_date = !empty($_POST['treatment_outcome_date']) ? $_POST['treatment_outcome_date'] : null;
+        $other_exam = !empty($_POST['other_exam']) ? $_POST['other_exam'] : null;
+        $other_exam_date = !empty($_POST['other_exam_date']) ? $_POST['other_exam_date'] : null;
+        $tbdc = !empty($_POST['tbdc']) ? $_POST['tbdc'] : null;
+        
+        $bind_result = $stmt->bind_param("sssiissssssssssssss", 
+            $_POST['case_number'],
+            $_POST['date_opened'],
+            $_POST['region_province'],
+            $_POST['patient_id'],
+            $_SESSION['user_id'],
+            $_POST['source_of_patient'],
+            $tst_result,
+            $cxr_findings,
+            $_POST['bacteriological_status'],
+            $_POST['tb_classification'],
+            $_POST['diagnosis'],
+            $_POST['registration_group'],
+            $_POST['treatment_regimen'],
+            $_POST['treatment_started_date'],
+            $treatment_outcome,
+            $treatment_outcome_date,
+            $other_exam,
+            $other_exam_date,
+            $tbdc
+        );
+        
+        if (!$bind_result) {
+            throw new Exception("Binding parameters failed: " . $stmt->error);
+        }
+        
+        // Debug: Print values being inserted
+        error_log("Inserting values: " . json_encode([
+            'case_number' => $_POST['case_number'],
+            'date_opened' => $_POST['date_opened'],
+            'region_province' => $_POST['region_province'],
+            'patient_id' => $_POST['patient_id'],
+            'physician_id' => $_SESSION['user_id'],
+            'source_of_patient' => $_POST['source_of_patient'],
+            'tst_result' => $tst_result,
+            'cxr_findings' => $cxr_findings,
+            'bacteriological_status' => $_POST['bacteriological_status'],
+            'tb_classification' => $_POST['tb_classification'],
+            'diagnosis' => $_POST['diagnosis'],
+            'registration_group' => $_POST['registration_group'],
+            'treatment_regimen' => $_POST['treatment_regimen'],
+            'treatment_started_date' => $_POST['treatment_started_date'],
+            'treatment_outcome' => $treatment_outcome,
+            'treatment_outcome_date' => $treatment_outcome_date,
+            'other_exam' => $other_exam,
+            'other_exam_date' => $other_exam_date,
+            'tbdc' => $tbdc
+        ]));
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Execute failed: " . $stmt->error);
+        }
+        
+        $lab_results_id = $conn->insert_id;
+        error_log("Lab results inserted successfully with ID: " . $lab_results_id);
+        
+        // Continue with other insertions only if we have a valid lab_results_id
+        if ($lab_results_id) {
+            // Insert clinical examinations (only if exam_date is provided)
+            if (isset($_POST['exam_date']) && is_array($_POST['exam_date'])) {
+                $exam_sql = "INSERT INTO clinical_examinations (
+                    lab_results_id, examination_date, weight, unexplained_fever,
+                    unexplained_cough, unimproved_wellbeing, poor_appetite,
+                    positive_pe_findings, side_effects
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                $exam_stmt = $conn->prepare($exam_sql);
+                if (!$exam_stmt) {
+                    throw new Exception("Prepare clinical examinations failed: " . $conn->error);
+                }
+                
+                foreach ($_POST['exam_date'] as $key => $date) {
+                    if (!empty($date)) {
+                        $fever = isset($_POST['fever'][$key]) ? 1 : 0;
+                        $cough = isset($_POST['cough'][$key]) ? 1 : 0;
+                        $wellbeing = isset($_POST['wellbeing'][$key]) ? 1 : 0;
+                        $appetite = isset($_POST['appetite'][$key]) ? 1 : 0;
+                        $pe_findings = isset($_POST['pe_findings'][$key]) ? 1 : 0;
+                        $side_effects = !empty($_POST['side_effects'][$key]) ? $_POST['side_effects'][$key] : null;
+                        $weight = !empty($_POST['weight'][$key]) ? $_POST['weight'][$key] : null;
                         
-                        if (!$householdStmt->execute()) {
-                            throw new Exception("Error saving household member: " . $householdStmt->error);
+                        if (!$exam_stmt->bind_param("isdiiiiss", 
+                            $lab_results_id,
+                            $date,
+                            $weight,
+                            $fever,
+                            $cough,
+                            $wellbeing,
+                            $appetite,
+                            $pe_findings,
+                            $side_effects
+                        )) {
+                            throw new Exception("Binding clinical examination parameters failed: " . $exam_stmt->error);
+                        }
+                        
+                        if (!$exam_stmt->execute()) {
+                            throw new Exception("Execute clinical examination failed: " . $exam_stmt->error);
                         }
                     }
                 }
             }
+            
+            // Insert household members (only if household_name is provided)
+            if (isset($_POST['household_name']) && is_array($_POST['household_name'])) {
+                $household_sql = "INSERT INTO household_members (
+                    lab_results_id, first_name, age, screened
+                ) VALUES (?, ?, ?, ?)";
+                
+                $household_stmt = $conn->prepare($household_sql);
+                if (!$household_stmt) {
+                    throw new Exception("Prepare household members failed: " . $conn->error);
+                }
+                
+                foreach ($_POST['household_name'] as $key => $name) {
+                    if (!empty($name)) {
+                        $screened = isset($_POST['household_screened'][$key]) ? 1 : 0;
+                        $age = !empty($_POST['household_age'][$key]) ? $_POST['household_age'][$key] : null;
+                        
+                        if (!$household_stmt->bind_param("isii", 
+                            $lab_results_id,
+                            $name,
+                            $age,
+                            $screened
+                        )) {
+                            throw new Exception("Binding household member parameters failed: " . $household_stmt->error);
+                        }
+                        
+                        if (!$household_stmt->execute()) {
+                            throw new Exception("Execute household member failed: " . $household_stmt->error);
+                        }
+                    }
+                }
+            }
+            
+            // Insert drug history (only if drug_history is provided)
+            if (isset($_POST['drug_history'])) {
+                $drug_history_sql = "INSERT INTO drug_histories (
+                    lab_results_id, has_history, duration, drugs_taken
+                ) VALUES (?, ?, ?, ?)";
+                
+                $drug_history_stmt = $conn->prepare($drug_history_sql);
+                if (!$drug_history_stmt) {
+                    throw new Exception("Prepare drug history failed: " . $conn->error);
+                }
+                
+                $has_history = $_POST['drug_history'] === 'Yes' ? 1 : 0;
+                $duration = !empty($_POST['drug_duration']) ? $_POST['drug_duration'] : null;
+                $drugs_taken = isset($_POST['drugs_taken']) ? implode(',', $_POST['drugs_taken']) : null;
+                
+                if (!$drug_history_stmt->bind_param("iiss", 
+                    $lab_results_id,
+                    $has_history,
+                    $duration,
+                    $drugs_taken
+                )) {
+                    throw new Exception("Binding drug history parameters failed: " . $drug_history_stmt->error);
+                }
+                
+                if (!$drug_history_stmt->execute()) {
+                    throw new Exception("Execute drug history failed: " . $drug_history_stmt->error);
+                }
+            }
+            
+            // Save DSSM Results
+            if (isset($_POST['dssm_due_date']) && is_array($_POST['dssm_due_date'])) {
+                $dssm_sql = "INSERT INTO dssm_results (lab_results_id, month, due_date, exam_date, result) 
+                             VALUES (?, ?, ?, ?, ?)";
+                $dssm_stmt = $conn->prepare($dssm_sql);
+                
+                foreach ($_POST['dssm_due_date'] as $key => $due_date) {
+                    if (!empty($due_date) || !empty($_POST['dssm_exam_date'][$key]) || !empty($_POST['dssm_result'][$key])) {
+                        $dssm_stmt->bind_param("iisss", 
+                            $lab_results_id,
+                            $key, // month number
+                            $due_date,
+                            $_POST['dssm_exam_date'][$key],
+                            $_POST['dssm_result'][$key]
+                        );
+                        $dssm_stmt->execute();
+                    }
+                }
+            }
 
+            // Save Drug Dosages
+            $drug_names = ['Isoniazid [H] 10mg/kg (200mg/5ml)', 'Rifampicin [R]', 'Pyrazinamide [Z]', 'Ethambutol [E]'];
+            foreach ($drug_names as $drug_name) {
+                $dosage_sql = "INSERT INTO drug_dosages (lab_results_id, drug_name, 
+                       month_1, month_2, month_3, month_4, month_5, month_6, 
+                       month_7, month_8, month_9, month_10, month_11, month_12) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $dosage_stmt = $conn->prepare($dosage_sql);
+                
+                // Get the drug prefix (e.g., 'isoniazid', 'rifampicin', etc.)
+                $drug_prefix = strtolower(explode(' ', $drug_name)[0]);
+                
+                // Create references for bind_param
+                $ref_id = $lab_results_id;
+                $ref_name = $drug_name;
+                $refs = array(&$ref_id, &$ref_name);
+                
+                // Add monthly values as references
+                for ($month = 1; $month <= 12; $month++) {
+                    $field_name = $drug_prefix . "_month_" . $month;
+                    $monthly_values[$month-1] = isset($_POST[$field_name]) ? $_POST[$field_name] : null;
+                    $refs[] = &$monthly_values[$month-1];
+                }
+                
+                // Create the types string
+                $types = "ss" . str_repeat("d", 12);
+                array_unshift($refs, $types);
+                
+                // Bind parameters using references
+                call_user_func_array(array($dosage_stmt, 'bind_param'), $refs);
+                
+                // Execute the statement
+                $dosage_stmt->execute();
+            }
+            
+            // Commit transaction
             $conn->commit();
-            $_SESSION['success'] = "Treatment card and related records saved successfully.";
+            
+            // Log the activity
+            logActivity($conn, $_SESSION['user_id'], 'CREATE', 'lab_results', $lab_results_id, 'Added new laboratory record');
+            
+            $_SESSION['success'] = "Laboratory record added successfully";
             header("Location: laboratory.php");
             exit;
-
-        } catch (Exception $e) {
-            $conn->rollback();
-            error_log("Error in laboratory.php: " . $e->getMessage());
-            $_SESSION['error'] = "Error: " . $e->getMessage();
-            header("Location: laboratory.php");
-            exit;
+        } else {
+            throw new Exception("Failed to get last insert ID");
         }
-    }
-
-    // Get the lab_results_id (either from INSERT or existing record)
-    $lab_results_id = isset($_POST['id']) ? $_POST['id'] : $conn->insert_id;
-    
-    // Handle Clinical Examinations
-    if (isset($_POST['examination_date']) && is_array($_POST['examination_date'])) {
-        foreach ($_POST['examination_date'] as $key => $date) {
-            if (empty($date)) continue;
-            
-            $stmt = $conn->prepare("INSERT INTO clinical_examinations (
-                lab_results_id, examination_date, weight, unexplained_fever,
-                unexplained_cough, unimproved_wellbeing, poor_appetite,
-                positive_pe_findings, side_effects
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                weight = VALUES(weight),
-                unexplained_fever = VALUES(unexplained_fever),
-                unexplained_cough = VALUES(unexplained_cough),
-                unimproved_wellbeing = VALUES(unimproved_wellbeing),
-                poor_appetite = VALUES(poor_appetite),
-                positive_pe_findings = VALUES(positive_pe_findings),
-                side_effects = VALUES(side_effects)");
-            
-            $fever = isset($_POST['fever'][$key]) ? 1 : 0;
-            $cough = isset($_POST['cough'][$key]) ? 1 : 0;
-            $wellbeing = isset($_POST['wellbeing'][$key]) ? 1 : 0;
-            $appetite = isset($_POST['appetite'][$key]) ? 1 : 0;
-            $pe_findings = isset($_POST['pe_findings'][$key]) ? 1 : 0;
-            
-            $stmt->bind_param("isdiiiiii",
-                $lab_results_id,
-                $date,
-                $_POST['weight'][$key],
-                $fever,
-                $cough,
-                $wellbeing,
-                $appetite,
-                $pe_findings,
-                $_POST['side_effects'][$key]
-            );
-            $stmt->execute();
-        }
-    }
-    
-    // Handle Drug Administrations
-    if (isset($_POST['administration_date']) && is_array($_POST['administration_date'])) {
-        foreach ($_POST['administration_date'] as $key => $date) {
-            if (empty($date)) continue;
-            
-            $stmt = $conn->prepare("INSERT INTO drug_administrations (
-                lab_results_id, administration_date,
-                isoniazid_dosage, isoniazid_given,
-                rifampicin_dosage, rifampicin_given,
-                pyrazinamide_dosage, pyrazinamide_given,
-                ethambutol_dosage, ethambutol_given,
-                streptomycin_dosage, streptomycin_given
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                isoniazid_dosage = VALUES(isoniazid_dosage),
-                isoniazid_given = VALUES(isoniazid_given),
-                rifampicin_dosage = VALUES(rifampicin_dosage),
-                rifampicin_given = VALUES(rifampicin_given),
-                pyrazinamide_dosage = VALUES(pyrazinamide_dosage),
-                pyrazinamide_given = VALUES(pyrazinamide_given),
-                ethambutol_dosage = VALUES(ethambutol_dosage),
-                ethambutol_given = VALUES(ethambutol_given),
-                streptomycin_dosage = VALUES(streptomycin_dosage),
-                streptomycin_given = VALUES(streptomycin_given)");
-            
-            $stmt->bind_param("isdsdsdsdsds",
-                $lab_results_id,
-                $date,
-                $_POST['isoniazid_dosage'][$key],
-                $_POST['isoniazid_given'][$key],
-                $_POST['rifampicin_dosage'][$key],
-                $_POST['rifampicin_given'][$key],
-                $_POST['pyrazinamide_dosage'][$key],
-                $_POST['pyrazinamide_given'][$key],
-                $_POST['ethambutol_dosage'][$key],
-                $_POST['ethambutol_given'][$key],
-                $_POST['streptomycin_dosage'][$key],
-                $_POST['streptomycin_given'][$key]
-            );
-            $stmt->execute();
-        }
+        
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        error_log("Error in laboratory.php: " . $e->getMessage());
+        $_SESSION['error'] = "Error: " . $e->getMessage();
+        header("Location: laboratory.php");
+        exit;
     }
 }
 ?>
@@ -613,10 +660,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                     <button type='button' class='btn btn-sm btn-info' onclick='editLabRecord({$patientRow["id"]})'>
                                         <i class='fas fa-edit'></i>
                                     </button>
-                                    <button type='button' class='btn btn-sm btn-info' 
-                                            onclick='viewTreatmentCard({$patientRow['id']})'>
-                                        View Details
-                                    </button>
                                 </td>
                             </tr>";
                       endforeach;
@@ -691,7 +734,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                       'data-contact-person' => $patientRow['contact_person'],
                                       'data-contact-person-no' => $patientRow['contact_person_no']
                                   ];
-                                  
+
                                   $dataAttributesString = '';
                                   foreach($dataAttributes as $key => $value) {
                                       $dataAttributesString .= ' ' . $key . '="' . htmlspecialchars($value ?? '') . '"';
@@ -793,7 +836,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                       <div class="form-group mb-2">
                         <label>Bacteriological Status</label>
                         <select name="bacteriological_status" class="form-control">
-                            <option>Select Bacteriological Status</option>
+                            <option value="">Select Bacteriological Status</option>
                             <option value="confirmed">Bacteriologically Confirmed</option>
                             <option value="clinically">Clinically Diagnosed</option>
                         </select>
@@ -801,7 +844,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                       <div class="form-group mb-2">
                         <label>Classification of TB Disease</label>
                         <select name="tb_classification" class="form-control">
-                            <option>Select Classification of TB Disease</option>
+                            <option value="">Select Classification of TB Disease</option>
                             <option value="pulmonary">Pulmonary</option>
                             <option value="extra_pulmonary">Extra Pulmonary</option>
                         </select>
@@ -839,6 +882,105 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
               </div>
 
+              <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span>Clinical Examination</span>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="addClinicalExamRow()">
+                    <i class="fas fa-plus"></i> Add Row
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table" id="clinical-exam-table">
+                      <thead>
+                        <tr class="text-nowrap">
+                          <th style="width: 150px;">Date</th>
+                          <th style="width: 120px;">Weight (Kg)</th>
+                          <th style="width: 100px;">Unexplained Fever</th>
+                          <th style="width: 100px;">Cough/Wheezing</th>
+                          <th style="width: 100px;">Well Being</th>
+                          <th style="width: 100px;">Appetite</th>
+                          <th style="width: 100px;">PE Findings</th>
+                          <th>Side Effects</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><input type="date" class="form-control form-control-sm" name="exam_date[]"></td>
+                          <td><input type="number" step="0.1" class="form-control form-control-sm" name="weight[]"></td>
+                          <td class="text-center"><input type="checkbox" class="form-check-input" name="fever[]"></td>
+                          <td class="text-center"><input type="checkbox" class="form-check-input" name="cough[]"></td>
+                          <td class="text-center"><input type="checkbox" class="form-check-input" name="wellbeing[]"></td>
+                          <td class="text-center"><input type="checkbox" class="form-check-input" name="appetite[]"></td>
+                          <td class="text-center"><input type="checkbox" class="form-check-input" name="pe_findings[]"></td>
+                          <td><input type="text" class="form-control form-control-sm" name="side_effects[]"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header">Drugs: Dosages and Preparations</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Drug</th>
+                          <th>Month 1</th>
+                          <th>Month 2</th>
+                          <th>Month 3</th>
+                          <th>Month 4</th>
+                          <th>Month 5</th>
+                          <th>Month 6</th>
+                          <th>Month 7</th>
+                          <th>Month 8</th>
+                          <th>Month 9</th>
+                          <th>Month 10</th>
+                          <th>Month 11</th>
+                          <th>Month 12</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Isoniazid [H] 10mg/kg (200mg/5ml)</td>
+                          <?php for($i = 1; $i <= 12; $i++): ?>
+                          <td>
+                            <input type="number" step="0.1" class="form-control" name="isoniazid_month_<?php echo $i; ?>">
+                          </td>
+                          <?php endfor; ?>
+                        </tr>
+                        <tr>
+                          <td>Rifampicin [R]</td>
+                          <?php for($i = 1; $i <= 12; $i++): ?>
+                          <td>
+                            <input type="number" step="0.1" class="form-control" name="rifampicin_month_<?php echo $i; ?>">
+                          </td>
+                          <?php endfor; ?>
+                        </tr>
+                        <tr>
+                          <td>Pyrazinamide [Z]</td>
+                          <?php for($i = 1; $i <= 12; $i++): ?>
+                          <td>
+                            <input type="number" step="0.1" class="form-control" name="pyrazinamide_month_<?php echo $i; ?>">
+                          </td>
+                          <?php endfor; ?>
+                        </tr>
+                        <tr>
+                          <td>Ethambutol [E]</td>
+                          <?php for($i = 1; $i <= 12; $i++): ?>
+                          <td>
+                            <input type="number" step="0.1" class="form-control" name="ethambutol_month_<?php echo $i; ?>">
+                          </td>
+                          <?php endfor; ?>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
               <!-- Other Patient Details Section -->
               <div class="card mb-3">
                 <div class="card-header">Other Patient Details</div>
@@ -949,16 +1091,23 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
               </div>
 
-              <!-- Add to Diagnostic Tests Section -->
-              <div class="form-group mb-2">
-                <label>Other Exam</label>
-                <input type="text" class="form-control" name="other_exam">
-                <input type="date" class="form-control mt-2" name="other_exam_date">
-              </div>
-
-              <div class="form-group mb-2">
-                <label>TBDC</label>
-                <input type="text" class="form-control" name="tbdc">
+              <!-- Other Diagnostic Tests Section -->
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Other Exam</label>
+                    <div class="input-group">
+                      <input type="text" class="form-control" name="other_exam" placeholder="Enter other exam details">
+                      <input type="date" class="form-control" name="other_exam_date">
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>TBDC</label>
+                    <input type="text" class="form-control" name="tbdc" placeholder="Enter TBDC details">
+                  </div>
+                </div>
               </div>
 
               <!-- Treatment Details Section -->
@@ -1021,137 +1170,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                   </div>
                 </div>
               </div>
-
-              <div class="card mb-3">
-                <div class="card-header">Clinical Examination</div>
-                <div class="card-body">
-                  <table class="table table-bordered">
-                    <thead>
-                      <tr>
-                        <th>Date Examined/Results</th>
-                        <th>Initial</th>
-                        <th>2</th>
-                        <th>3</th>
-                        <th>4</th>
-                        <th>5</th>
-                        <th>6</th>
-                        <th>7</th>
-                        <th>8</th>
-                        <th>9</th>
-                        <th>10</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Weight in Kg.</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="number" step="0.01" class="form-control form-control-sm" name="weight[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Unexplained fever >2 wks</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="checkbox" name="fever_<?php echo $i; ?>"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Unexplained cough/wheezing >2wks</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="checkbox" name="cough_<?php echo $i; ?>"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Unimproved general well being</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="checkbox" name="well_being_<?php echo $i; ?>"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Poor appetite</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="checkbox" name="appetite_<?php echo $i; ?>"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Positive PE findings for Extra-pulmonary TB</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="checkbox" name="pe_findings_<?php echo $i; ?>"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Side Effects**</td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="text" class="form-control form-control-sm" name="side_effects[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <small class="text-muted">
-                    ** 1-fatigue, 2-nausea/vomiting, 3-abdominal pain, 4-reddish urine or tears, 5-numbness, 6-visual changes, 7-skin changes, 8-jaundice, 9-enlarged liver, 10-others
-                  </small>
-                </div>
-              </div>
-
-              <div class="card mb-3">
-                <div class="card-header">Drug Administration</div>
-                <div class="card-body">
-                  <table class="table table-bordered">
-                    <thead>
-                      <tr>
-                        <th>Drug Name</th>
-                        <th>Dosage</th>
-                        <th>Initial</th>
-                        <th>2</th>
-                        <th>3</th>
-                        <th>4</th>
-                        <th>5</th>
-                        <th>6</th>
-                        <th>7</th>
-                        <th>8</th>
-                        <th>9</th>
-                        <th>10</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Isoniazid [H] 10mg/kg (300mg/5ml)</td>
-                        <td><input type="text" class="form-control form-control-sm" name="isoniazid_dosage" placeholder="ml"></td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="text" class="form-control form-control-sm" name="isoniazid[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Rifampicin [R] 15mg/kg (200mg/5ml)</td>
-                        <td><input type="text" class="form-control form-control-sm" name="rifampicin_dosage" placeholder="ml"></td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="text" class="form-control form-control-sm" name="rifampicin[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Pyrazinamide [Z] 30mg/kg (250mg/5ml)</td>
-                        <td><input type="text" class="form-control form-control-sm" name="pyrazinamide_dosage" placeholder="ml"></td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="text" class="form-control form-control-sm" name="pyrazinamide[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Ethambutol [E] 20mg/kg (400mg/tab)</td>
-                        <td><input type="text" class="form-control form-control-sm" name="ethambutol_dosage" placeholder="tab"></td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="text" class="form-control form-control-sm" name="ethambutol[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                      <tr>
-                        <td>Streptomycin [S] 15mg/kg (1g/vial)</td>
-                        <td><input type="text" class="form-control form-control-sm" name="streptomycin_dosage" placeholder="ml"></td>
-                        <?php for($i = 0; $i < 11; $i++): ?>
-                        <td><input type="text" class="form-control form-control-sm" name="streptomycin[]"></td>
-                        <?php endfor; ?>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -1210,11 +1228,11 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         // First, select the patient in the dropdown
         const patientSelect = document.getElementById('patient_select');
         patientSelect.value = patientId;
-        
+
         // Manually trigger data population
         const selectedOption = patientSelect.options[patientSelect.selectedIndex];
         populatePatientData(selectedOption);
-        
+
         // Show the modal
         const modal = new bootstrap.Modal(document.getElementById('addLaboratoryModal'));
         modal.show();
@@ -1242,8 +1260,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     function populatePatientData(selectedOption) {
-        console.log('Populating data for patient:', selectedOption.value);
-        
         if (selectedOption && selectedOption.value) {
             try {
                 // Basic Information
@@ -1258,39 +1274,62 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                     'input[name="occupation"]': 'occupation',
                     'input[name="phil_health_no"]': 'philHealthNo',
                     'input[name="contact_person"]': 'contactPerson',
-                    'input[name="contact_person_no"]': 'contactPersonNo'
+                    'input[name="contact_person_no"]': 'contactPersonNo',
+                    'input[name="facility_name"]': 'location'
                 };
 
                 // Fetch patient data from server
                 fetch(`get_patient_data.php?id=${selectedOption.value}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        // Populate each field
-                        Object.entries(fields).forEach(([selector, dataKey]) => {
-                            const element = document.querySelector(selector);
-                            if (element) {
-                                if (typeof dataKey === 'object') {
-                                    // Handle transformed values
-                                    element.value = dataKey.transform(data[dataKey.attr]) || '';
-                                } else {
-                                    element.value = data[dataKey] || '';
-                                }
-                            }
-                        });
+                  .then(response => response.json())
+                  .then(data => {
+                      // Populate each field
+                      Object.entries(fields).forEach(([selector, dataKey]) => {
+                          const element = document.querySelector(selector);
+                          if (element) {
+                              if (typeof dataKey === 'object') {
+                                  // Handle transformed values
+                                  element.value = dataKey.transform(data[dataKey.attr]) || '';
+                              } else {
+                                  element.value = data[dataKey] || '';
+                              }
+                          }
+                      });
+                      // Set current date for date fields if empty
+                      const currentDate = new Date().toISOString().split('T')[0];
+                      const dateFields = ['date_opened', 'treatment_started_date'];
+                      dateFields.forEach(fieldName => {
+                          const dateField = document.querySelector(`input[name="${fieldName}"]`);
+                          if (dateField && !dateField.value) {
+                              dateField.value = currentDate;
+                          }
+                      });
+                  })
+                  .catch(error => {
+                      console.error('Error fetching patient data:', error);
+                  });
 
-                        // Set current date for date fields if empty
-                        const currentDate = new Date().toISOString().split('T')[0];
-                        const dateFields = ['date_opened', 'treatment_started_date'];
-                        dateFields.forEach(fieldName => {
-                            const dateField = document.querySelector(`input[name="${fieldName}"]`);
-                            if (dateField && !dateField.value) {
-                                dateField.value = currentDate;
-                            }
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching patient data:', error);
-                    });
+                // // Populate each field
+                // Object.entries(fields).forEach(([selector, dataKey]) => {
+                //     const element = document.querySelector(selector);
+                //     if (element) {
+                //         if (typeof dataKey === 'object') {
+                //             // Handle transformed values
+                //             element.value = dataKey.transform(selectedOption.dataset[dataKey.attr]) || '';
+                //         } else {
+                //             element.value = selectedOption.dataset[dataKey] || '';
+                //         }
+                //     }
+                // });
+
+                // Set current date for date fields if empty
+                const currentDate = new Date().toISOString().split('T')[0];
+                const dateFields = ['date_opened', 'treatment_started_date'];
+                dateFields.forEach(fieldName => {
+                    const dateField = document.querySelector(`input[name="${fieldName}"]`);
+                    if (dateField && !dateField.value) {
+                        dateField.value = currentDate;
+                    }
+                });
             } catch (error) {
                 console.error('Error populating patient data:', error);
             }
@@ -1364,187 +1403,175 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 modalBody.innerHTML = `<div class="alert alert-danger">Error loading data: ${error.message}</div>`;
             });
     }
-
+    
     function editLabRecord(id) {
-        showLoading();
-        
-        // Fetch the laboratory record data
-        fetch(`get_laboratory.php?id=${id}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const labData = data.data;
-                    
-                    // Open the modal
-                    const modal = new bootstrap.Modal(document.getElementById('addLaboratoryModal'));
-                    modal.show();
-                    
-                    // Set form to update mode
-                    const form = document.querySelector('#addLaboratoryModal form');
-                    
-                    // Add hidden input for ID
-                    let idInput = form.querySelector('input[name="id"]');
-                    if (!idInput) {
-                        idInput = document.createElement('input');
-                        idInput.type = 'hidden';
-                        idInput.name = 'id';
-                        form.appendChild(idInput);
-                    }
-                    idInput.value = id;
-                    
-                    // Populate the form fields
-                    Object.keys(labData).forEach(key => {
-                        const element = form.querySelector(`[name="${key}"]`);
-                        if (element) {
-                            if (element.type === 'checkbox') {
-                                element.checked = labData[key] === '1' || labData[key] === true;
-                            } else if (element.type === 'select-one') {
-                                // For dropdown menus
-                                const value = String(labData[key] || '');
-                                if (value) {
-                                    // Find and select the matching option
-                                    const option = Array.from(element.options).find(opt => {
-                                        const optValue = String(opt.value || '').toLowerCase();
-                                        const optText = String(opt.textContent || '').toLowerCase();
-                                        const compareValue = value.toLowerCase();
-                                        return optValue === compareValue || optText === compareValue;
-                                    });
-                                    if (option) {
-                                        option.selected = true;
-                                        // Trigger change event in case there are any dependencies
-                                        element.dispatchEvent(new Event('change'));
+        console.log('Attempting to edit record with ID:', id);
+
+        $.ajax({
+            url: 'get_laboratory.php',
+            method: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            beforeSend: function() {
+                console.log('Starting AJAX request to get_laboratory.php');
+            },
+            success: function(response) {
+                console.log('Received response:', response);
+                
+                if (response.success) {
+                    const data = response.data;
+                    console.log('Processing data:', data);
+
+                    try {
+                        // Basic Information
+                        $('input[name="case_number"]').val(data.case_number);
+                        $('input[name="date_opened"]').val(data.date_opened);
+                        $('input[name="region_province"]').val(data.region_province);
+                        $('select[name="source_of_patient"]').val(data.source_of_patient);
+                        
+                        // Patient Details
+                        $('#patient_select').val(data.patient_id);
+                        $('select[name="sex"]').val(data.sex === 1 ? 'M' : 'F');
+                        $('input[name="age"]').val(data.age);
+                        $('textarea[name="address"]').val(data.address);
+                        $('select[name="bcg_scar"]').val(data.bcg_scar);
+                        
+                        // Diagnostic Tests
+                        $('input[name="tst_result"]').val(data.tst_result);
+                        $('textarea[name="cxr_findings"]').val(data.cxr_findings);
+                        $('select[name="bacteriological_status"]').val(data.bacteriological_status);
+                        $('select[name="tb_classification"]').val(data.tb_classification);
+                        
+                        // Treatment Details
+                        $('select[name="diagnosis"]').val(data.diagnosis);
+                        $('select[name="registration_group"]').val(data.registration_group);
+                        $('select[name="treatment_regimen"]').val(data.treatment_regimen);
+                        $('input[name="treatment_started_date"]').val(data.treatment_started_date);
+                        $('select[name="treatment_outcome"]').val(data.treatment_outcome);
+                        $('input[name="treatment_outcome_date"]').val(data.treatment_outcome_date);
+
+                        // DSSM Results
+                        if (data.dssm_results && data.dssm_results.length > 0) {
+                            try {
+                                // Create rows for months 0-7
+                                for (let i = 0; i <= 7; i++) {
+                                    // Find result for this month if it exists
+                                    const monthResult = data.dssm_results.find(result => 
+                                        parseInt(result.month) === i
+                                    );
+                                    
+                                    // Set values using individual field names
+                                    if (monthResult) {
+                                        $(`input[name="dssm_due_date_${i}"]`).val(monthResult.due_date);
+                                        $(`input[name="dssm_exam_date_${i}"]`).val(monthResult.exam_date);
+                                        $(`input[name="dssm_result_${i}"]`).val(monthResult.result);
                                     }
                                 }
-                            } else if (element.type === 'select-multiple') {
-                                const values = (labData[key] || '').split(',');
-                                Array.from(element.options).forEach(option => {
-                                    option.selected = values.includes(option.value);
-                                });
-                            } else {
-                                element.value = labData[key] || '';
+                            } catch (error) {
+                                console.error('Error populating DSSM results:', error);
                             }
                         }
-                    });
-                    
-                    // Special handling for specific dropdowns
-                    const bacteriologicalStatus = form.querySelector('[name="bacteriological_status"]');
-                    if (bacteriologicalStatus && labData.bacteriological_status) {
-                        const value = String(labData.bacteriological_status);
-                        Array.from(bacteriologicalStatus.options).forEach(option => {
-                            const optValue = String(option.value || '').toLowerCase();
-                            const optText = String(option.textContent || '').toLowerCase();
-                            const compareValue = value.toLowerCase();
-                            if (optValue === compareValue || optText === compareValue) {
-                                option.selected = true;
+
+                        // Clinical Examinations
+                        if (data.clinical_examinations && data.clinical_examinations.length > 0) {
+                            $('#clinical-exam-table tbody').empty();
+                            data.clinical_examinations.forEach(exam => {
+                                $('#clinical-exam-table tbody').append(`
+                                    <tr>
+                                        <td><input type="date" class="form-control" name="exam_date[]" value="${exam.examination_date || ''}"></td>
+                                        <td><input type="number" step="0.1" class="form-control" name="weight[]" value="${exam.weight || ''}"></td>
+                                        <td><input type="checkbox" class="form-check-input" name="fever[]" ${exam.unexplained_fever ? 'checked' : ''}></td>
+                                        <td><input type="checkbox" class="form-check-input" name="cough[]" ${exam.unexplained_cough ? 'checked' : ''}></td>
+                                        <td><input type="checkbox" class="form-check-input" name="wellbeing[]" ${exam.unimproved_wellbeing ? 'checked' : ''}></td>
+                                        <td><input type="checkbox" class="form-check-input" name="appetite[]" ${exam.poor_appetite ? 'checked' : ''}></td>
+                                        <td><input type="checkbox" class="form-check-input" name="pe_findings[]" ${exam.positive_pe_findings ? 'checked' : ''}></td>
+                                        <td><input type="text" class="form-control" name="side_effects[]" value="${exam.side_effects || ''}"></td>
+                                    </tr>
+                                `);
+                            });
+                        }
+
+                        // Drug Dosages
+                        if (data.drug_dosages && data.drug_dosages.length > 0) {
+                            data.drug_dosages.forEach(dosage => {
+                                const drugName = dosage.drug_name.toLowerCase();
+                                const prefix = drugName.includes('isoniazid') ? 'h' :
+                                             drugName.includes('rifampicin') ? 'r' :
+                                             drugName.includes('pyrazinamide') ? 'z' :
+                                             drugName.includes('ethambutol') ? 'e' : null;
+                                
+                                if (prefix) {
+                                    for (let i = 1; i <= 12; i++) {
+                                        const value = dosage[`month_${i}`];
+                                        if (value !== null && value !== undefined) {
+                                            $(`input[name="${prefix}_month_${i}"]`).val(value);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Other Patient Details
+                        const otherFields = {
+                            'height': data.height,
+                            'occupation': data.occupation,
+                            'phil_health_no': data.phil_health_no,
+                            'contact_person': data.contact_person,
+                            'contact_person_no': data.contact_number
+                        };
+
+                        Object.entries(otherFields).forEach(([field, value]) => {
+                            if (value !== null && value !== undefined) {
+                                $(`input[name="${field}"]`).val(value);
                             }
                         });
+
+                        // Log missing fields for debugging
+                        console.log('Missing or null fields:', Object.entries(otherFields)
+                            .filter(([_, value]) => value === null || value === undefined)
+                            .map(([field]) => field));
+
+                        // Show the modal and update form state
+                        const modal = new bootstrap.Modal(document.getElementById('addLaboratoryModal'));
+                        modal.show();
+                        
+                        // Update form button and add record ID
+                        $('input[name="lab_record_id"]').val(id);
+                        $('#form-button').text('Update Record');
+                        
+                        console.log('Successfully populated form data');
+
+                    } catch (error) {
+                        console.error('Error while populating form:', error);
+                        alert('Error while populating form: ' + error.message);
                     }
-
-                    const tbClassification = form.querySelector('[name="tb_classification"]');
-                    if (tbClassification && labData.tb_classification) {
-                        const value = String(labData.tb_classification);
-                        Array.from(tbClassification.options).forEach(option => {
-                            const optValue = String(option.value || '').toLowerCase();
-                            const optText = String(option.textContent || '').toLowerCase();
-                            const compareValue = value.toLowerCase();
-                            if (optValue === compareValue || optText === compareValue) {
-                                option.selected = true;
-                            }
-                        });
-                    }
-                    
-                    // Update the submit button text
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    submitBtn.textContent = 'Update Record';
-                    
-                    form.onsubmit = function(e) {
-                        e.preventDefault();
-                        updateLabRecord(id);
-                    };
-                    
-                    hideLoading();
-                } else {
-                    alert('Error loading laboratory record: ' + data.message);
-                    hideLoading();
                 }
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Error loading laboratory record: ' + error.message);
-            });
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', {
+                    status: status,
+                    error: error,
+                    response: xhr.responseText
+                });
+                alert('Error loading laboratory record. Please check the console for details.');
+            }
+        });
     }
 
-    // Add this to your existing JavaScript where you handle form population
-    function populateLabForm(data) {
-        // ... existing form population code ...
-        
-        // Populate clinical examinations
-        if (data.clinical_data && data.clinical_data.length > 0) {
-            data.clinical_data.forEach((exam, index) => {
-                if (index > 0) addExaminationRow(); // Add new row if needed
-                
-                const row = document.querySelector(`#examination-row-${index}`);
-                if (row) {
-                    row.querySelector('[name="examination_date[]"]').value = exam.examination_date;
-                    row.querySelector('[name="weight[]"]').value = exam.weight;
-                    row.querySelector('[name="fever[]"]').checked = exam.unexplained_fever == 1;
-                    row.querySelector('[name="cough[]"]').checked = exam.unexplained_cough == 1;
-                    row.querySelector('[name="wellbeing[]"]').checked = exam.unimproved_wellbeing == 1;
-                    row.querySelector('[name="appetite[]"]').checked = exam.poor_appetite == 1;
-                    row.querySelector('[name="pe_findings[]"]').checked = exam.positive_pe_findings == 1;
-                    row.querySelector('[name="side_effects[]"]').value = exam.side_effects;
-                }
-            });
-        }
-        
-        // Populate drug administrations
-        if (data.drug_data && data.drug_data.length > 0) {
-            data.drug_data.forEach((drug, index) => {
-                if (index > 0) addDrugRow(); // Add new row if needed
-                
-                const row = document.querySelector(`#drug-row-${index}`);
-                if (row) {
-                    row.querySelector('[name="administration_date[]"]').value = drug.administration_date;
-                    row.querySelector('[name="isoniazid_dosage[]"]').value = drug.isoniazid_dosage;
-                    row.querySelector('[name="isoniazid_given[]"]').value = drug.isoniazid_given;
-                    // ... repeat for other drugs ...
-                }
-            });
-        }
-    }
-
-    function addExaminationRow() {
-        const container = document.querySelector('#clinical-examinations-container');
-        const rowCount = container.querySelectorAll('.examination-row').length;
-        
-        const newRow = document.createElement('div');
-        newRow.className = 'examination-row';
-        newRow.id = `examination-row-${rowCount}`;
+    function addClinicalExamRow() {
+        const tbody = document.querySelector('#clinical-exam-table tbody');
+        const newRow = document.createElement('tr');
         newRow.innerHTML = `
-            <input type="date" name="examination_date[]" required>
-            <input type="number" step="0.01" name="weight[]">
-            <input type="checkbox" name="fever[]">
-            <!-- Add other fields as needed -->
+            <td><input type="date" class="form-control" name="exam_date[]"></td>
+            <td><input type="number" step="0.1" class="form-control" name="weight[]"></td>
+            <td><input type="checkbox" class="form-check-input" name="fever[]"></td>
+            <td><input type="checkbox" class="form-check-input" name="cough[]"></td>
+            <td><input type="checkbox" class="form-check-input" name="wellbeing[]"></td>
+            <td><input type="checkbox" class="form-check-input" name="appetite[]"></td>
+            <td><input type="checkbox" class="form-check-input" name="pe_findings[]"></td>
+            <td><input type="text" class="form-control" name="side_effects[]"></td>
         `;
-        
-        container.appendChild(newRow);
-    }
-
-    function addDrugRow() {
-        const container = document.querySelector('#drug-administrations-container');
-        const rowCount = container.querySelectorAll('.drug-row').length;
-        
-        const newRow = document.createElement('div');
-        newRow.className = 'drug-row';
-        newRow.id = `drug-row-${rowCount}`;
-        newRow.innerHTML = `
-            <input type="date" name="administration_date[]" required>
-            <input type="number" step="0.01" name="isoniazid_dosage[]">
-            <input type="text" name="isoniazid_given[]">
-            <!-- Add other fields as needed -->
-        `;
-        
-        container.appendChild(newRow);
+        tbody.appendChild(newRow);
     }
   </script>
   <div class="modal fade" id="viewTreatmentCardModal" tabindex="-1" aria-labelledby="viewTreatmentCardModalLabel" aria-hidden="true">
@@ -1564,5 +1591,3 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
   </div>
 </body>
-
-</html>
