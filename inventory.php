@@ -99,10 +99,11 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             if($stmt->execute()) {
                 logActivity($conn, $_SESSION['user_id'], 'INSERT', 'inventory', $stmt->insert_id, 
                            "Added inventory for product ID: $product_id");
+                $_SESSION['success_message'] = "Inventory successfully added!";
             }
         } catch (Exception $e) {
             error_log("Error in inventory operation: " . $e->getMessage());
-            // Handle error appropriately
+            $_SESSION['error_message'] = "Error adding inventory. Please try again.";
         }
     }
 
@@ -121,7 +122,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
 // Get all products with their total inventory
 $sql = "SELECT p.*, 
         COALESCE(SUM(i.quantity), 0) as total_stock,
-        MIN(i.expiration_date) as nearest_expiry
+        MIN(i.expiration_date) as nearest_expiry,
+        GROUP_CONCAT(
+            CONCAT(i.batch_number, ':', i.quantity, ':', i.expiration_date)
+            ORDER BY i.expiration_date ASC
+            SEPARATOR '|'
+        ) as batch_details
         FROM products p
         LEFT JOIN inventory i ON p.id = i.product_id
         GROUP BY p.id";
@@ -243,6 +249,26 @@ $products = $conn->query($sql);
                         </div>
 
                         <div class="card-body px-0 pb-2">
+                            <?php if(isset($_SESSION['success_message'])): ?>
+                                <div class="alert alert-success alert-dismissible fade show mx-4" role="alert">
+                                    <?php 
+                                    echo $_SESSION['success_message'];
+                                    unset($_SESSION['success_message']);
+                                    ?>
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <?php if(isset($_SESSION['error_message'])): ?>
+                                <div class="alert alert-danger alert-dismissible fade show mx-4" role="alert">
+                                    <?php 
+                                    echo $_SESSION['error_message'];
+                                    unset($_SESSION['error_message']);
+                                    ?>
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            <?php endif; ?>
+                            
                             <div class="table-responsive p-0">
                                 <table class="table align-items-center mb-0" id="inventoryTable">
                                     <thead>
@@ -259,7 +285,7 @@ $products = $conn->query($sql);
                                     </thead>
                                     <tbody>
                                         <?php while($row = $products->fetch_assoc()): ?>
-                                            <tr>
+                                            <tr onclick="showProductDetails(<?php echo htmlspecialchars(json_encode($row)); ?>)" style="cursor: pointer;">
                                                 <td class="ps-4"><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['brand_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['generic_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['uses']); ?></span></td>
@@ -279,12 +305,12 @@ $products = $conn->query($sql);
                                                     <button onclick='editProduct(<?php echo json_encode($row); ?>)' class="btn btn-link text-secondary mb-0">
                                                         <i class="fa fa-edit text-xs"></i> Edit
                                                     </button>
-                                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure?');">
-                                                        <input type="hidden" name="delete_id" value="<?php echo $row['id']; ?>">
-                                                        <button type="submit" class="btn btn-link text-secondary mb-0">
-                                                            <i class="fa fa-trash text-xs"></i> Delete
-                                                        </button>
-                                                    </form>
+                                                    <!-- <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure?');"> -->
+                                                        <!-- <input type="hidden" name="delete_id" value="<?php echo $row['id']; ?>"> -->
+                                                        <!-- <button type="submit" class="btn btn-link text-secondary mb-0"> -->
+                                                            <!-- <i class="fa fa-trash text-xs"></i> Delete -->
+                                                        <!-- </button> -->
+                                                    <!-- </form> -->
                                                 </td>
                                             </tr>
                                         <?php endwhile; ?>
@@ -402,6 +428,68 @@ $products = $conn->query($sql);
             </div>
         </div>
 
+        <!-- Add this new modal before the closing body tag -->
+        <div class="modal fade" id="productDetailsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl" style="max-width: 95%; z-index: 9999;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Product Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-header">Basic Information</div>
+                                    <div class="card-body">
+                                        <p><strong>Brand Name:</strong> <span id="detail_brand_name"></span></p>
+                                        <p><strong>Generic Name:</strong> <span id="detail_generic_name"></span></p>
+                                        <p><strong>Uses:</strong> <span id="detail_uses"></span></p>
+                                        <p><strong>Dosage:</strong> <span id="detail_dosage"></span></p>
+                                        <p><strong>Unit of Measure:</strong> <span id="detail_unit_of_measure"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-header">Stock Information</div>
+                                    <div class="card-body">
+                                        <p><strong>Current Stock:</strong> <span id="detail_stock"></span></p>
+                                        <p><strong>Nearest Expiry:</strong> <span id="detail_expiry"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">Batch List</div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Batch Number</th>
+                                                        <th>Quantity</th>
+                                                        <th>Expiration Date</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="batch_list">
+                                                    <!-- Batch details will be populated here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <?php include_once('footer.php'); ?>
     </main>
 
@@ -444,6 +532,72 @@ $products = $conn->query($sql);
             }
             Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
         }
+
+        // Add this to your existing script section
+        function showProductDetails(data) {
+            // Populate existing details
+            document.getElementById('detail_brand_name').textContent = data.brand_name;
+            document.getElementById('detail_generic_name').textContent = data.generic_name;
+            document.getElementById('detail_uses').textContent = data.uses;
+            document.getElementById('detail_dosage').textContent = data.dosage;
+            document.getElementById('detail_unit_of_measure').textContent = data.unit_of_measure;
+            document.getElementById('detail_stock').textContent = data.total_stock;
+            document.getElementById('detail_expiry').textContent = data.nearest_expiry || 'N/A';
+            
+            // Populate batch list
+            const batchList = document.getElementById('batch_list');
+            batchList.innerHTML = ''; // Clear existing content
+            
+            if (data.batch_details) {
+                const batches = data.batch_details.split('|');
+                batches.forEach(batch => {
+                    const [batchNumber, quantity, expiryDate] = batch.split(':');
+                    const row = document.createElement('tr');
+                    
+                    // Calculate status based on expiry date
+                    const today = new Date();
+                    const expiryDateTime = new Date(expiryDate);
+                    const daysUntilExpiry = Math.ceil((expiryDateTime - today) / (1000 * 60 * 60 * 24));
+                    
+                    let status = '';
+                    let statusClass = '';
+                    if (daysUntilExpiry < 0) {
+                        status = 'Expired';
+                        statusClass = 'text-danger';
+                    } else if (daysUntilExpiry <= 30) {
+                        status = 'Expiring Soon';
+                        statusClass = 'text-warning';
+                    } else {
+                        status = 'Good';
+                        statusClass = 'text-success';
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${batchNumber}</td>
+                        <td>${quantity}</td>
+                        <td>${expiryDate}</td>
+                        <td><span class="${statusClass}">${status}</span></td>
+                    `;
+                    
+                    batchList.appendChild(row);
+                });
+            } else {
+                batchList.innerHTML = '<tr><td colspan="4" class="text-center">No batch information available</td></tr>';
+            }
+            
+            // Show the modal
+            new bootstrap.Modal(document.getElementById('productDetailsModal')).show();
+        }
+
+        // Add hover effect styles
+        document.querySelectorAll('#inventoryTable tbody tr').forEach(row => {
+            row.addEventListener('mouseover', function() {
+                this.style.backgroundColor = '#f8f9fa';
+            });
+            row.addEventListener('mouseout', function() {
+                this.style.backgroundColor = '';
+            });
+        });
     </script>
 </body>
 </html>

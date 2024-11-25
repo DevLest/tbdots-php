@@ -1405,23 +1405,16 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     
     function editLabRecord(id) {
-        console.log('Attempting to edit record with ID:', id);
-
         $.ajax({
             url: 'get_laboratory.php',
             method: 'GET',
             data: { id: id },
             dataType: 'json',
-            beforeSend: function() {
-                console.log('Starting AJAX request to get_laboratory.php');
-            },
             success: function(response) {
-                console.log('Received response:', response);
                 
                 if (response.success) {
                     const data = response.data;
-                    console.log('Processing data:', data);
-
+                    
                     try {
                         // Basic Information
                         $('input[name="case_number"]').val(data.case_number);
@@ -1431,14 +1424,25 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         
                         // Patient Details
                         $('#patient_select').val(data.patient_id);
-                        $('select[name="sex"]').val(data.sex === 1 ? 'M' : 'F');
-                        $('input[name="age"]').val(data.age);
                         $('textarea[name="address"]').val(data.address);
+                        $('input[name="age"]').val(data.age);
+                        $('select[name="sex"]').val(data.sex === 1 ? 'M' : 'F');
+                        $('input[name="contact"]').val(data.contact_number);
+                        
+                        // Additional Patient Info
+                        $('input[name="height"]').val(data.height);
+                        $('input[name="occupation"]').val(data.occupation);
+                        $('input[name="phil_health_no"]').val(data.phil_health_no);
+                        $('input[name="contact_person"]').val(data.contact_person);
+                        $('input[name="contact_person_no"]').val(data.contact_number);
                         $('select[name="bcg_scar"]').val(data.bcg_scar);
                         
                         // Diagnostic Tests
                         $('input[name="tst_result"]').val(data.tst_result);
                         $('textarea[name="cxr_findings"]').val(data.cxr_findings);
+                        $('input[name="other_exam"]').val(data.other_exam);
+                        $('input[name="other_exam_date"]').val(data.other_exam_date);
+                        $('input[name="tbdc"]').val(data.tbdc);
                         $('select[name="bacteriological_status"]').val(data.bacteriological_status);
                         $('select[name="tb_classification"]').val(data.tb_classification);
                         
@@ -1452,24 +1456,11 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
 
                         // DSSM Results
                         if (data.dssm_results && data.dssm_results.length > 0) {
-                            try {
-                                // Create rows for months 0-7
-                                for (let i = 0; i <= 7; i++) {
-                                    // Find result for this month if it exists
-                                    const monthResult = data.dssm_results.find(result => 
-                                        parseInt(result.month) === i
-                                    );
-                                    
-                                    // Set values using individual field names
-                                    if (monthResult) {
-                                        $(`input[name="dssm_due_date_${i}"]`).val(monthResult.due_date);
-                                        $(`input[name="dssm_exam_date_${i}"]`).val(monthResult.exam_date);
-                                        $(`input[name="dssm_result_${i}"]`).val(monthResult.result);
-                                    }
-                                }
-                            } catch (error) {
-                                console.error('Error populating DSSM results:', error);
-                            }
+                            data.dssm_results.forEach((result, index) => {
+                                $(`input[name="dssm_due_date[]"]`).eq(index).val(result.due_date);
+                                $(`input[name="dssm_exam_date[]"]`).eq(index).val(result.exam_date);
+                                $(`input[name="dssm_result[]"]`).eq(index).val(result.result);
+                            });
                         }
 
                         // Clinical Examinations
@@ -1478,8 +1469,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                             data.clinical_examinations.forEach(exam => {
                                 $('#clinical-exam-table tbody').append(`
                                     <tr>
-                                        <td><input type="date" class="form-control" name="exam_date[]" value="${exam.examination_date || ''}"></td>
-                                        <td><input type="number" step="0.1" class="form-control" name="weight[]" value="${exam.weight || ''}"></td>
+                                        <td><input type="date" class="form-control" name="exam_date[]" value="${exam.examination_date}"></td>
+                                        <td><input type="number" step="0.1" class="form-control" name="weight[]" value="${exam.weight}"></td>
                                         <td><input type="checkbox" class="form-check-input" name="fever[]" ${exam.unexplained_fever ? 'checked' : ''}></td>
                                         <td><input type="checkbox" class="form-check-input" name="cough[]" ${exam.unexplained_cough ? 'checked' : ''}></td>
                                         <td><input type="checkbox" class="form-check-input" name="wellbeing[]" ${exam.unimproved_wellbeing ? 'checked' : ''}></td>
@@ -1494,52 +1485,50 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         // Drug Dosages
                         if (data.drug_dosages && data.drug_dosages.length > 0) {
                             data.drug_dosages.forEach(dosage => {
-                                const drugName = dosage.drug_name.toLowerCase();
-                                const prefix = drugName.includes('isoniazid') ? 'h' :
-                                             drugName.includes('rifampicin') ? 'r' :
-                                             drugName.includes('pyrazinamide') ? 'z' :
-                                             drugName.includes('ethambutol') ? 'e' : null;
-                                
+                                let prefix;
+                                if (dosage.drug_name.includes('Isoniazid')) prefix = 'isoniazid';
+                                else if (dosage.drug_name.includes('Rifampicin')) prefix = 'rifampicin';
+                                else if (dosage.drug_name.includes('Pyrazinamide')) prefix = 'pyrazinamide';
+                                else if (dosage.drug_name.includes('Ethambutol')) prefix = 'ethambutol';
+
                                 if (prefix) {
                                     for (let i = 1; i <= 12; i++) {
-                                        const value = dosage[`month_${i}`];
-                                        if (value !== null && value !== undefined) {
-                                            $(`input[name="${prefix}_month_${i}"]`).val(value);
+                                        const monthField = `month_${i}`;
+                                        if (dosage[monthField] !== null && dosage[monthField] !== "0.00") {
+                                            $(`input[name="${prefix}_month_${i}"]`).val(dosage[monthField]);
                                         }
                                     }
                                 }
                             });
                         }
 
-                        // Other Patient Details
-                        const otherFields = {
-                            'height': data.height,
-                            'occupation': data.occupation,
-                            'phil_health_no': data.phil_health_no,
-                            'contact_person': data.contact_person,
-                            'contact_person_no': data.contact_number
-                        };
+                        // Household Members
+                        
+                        console.log('Populating household members:', data.household_members);
+                        const tbody = document.getElementById('householdMembersTable');
+                        while (tbody.firstChild) {
+                          tbody.removeChild(tbody.firstChild);
+                        }
+                        if (data.household_members && data.household_members.length > 0) {
+                            data.household_members.forEach(member => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td><input type="text" class="form-control" name="household_name[]" value="${member['first_name'] || ''}"></td>
+                                    <td><input type="number" class="form-control" name="household_age[]" value="${member['age'] || ''}"></td>
+                                    <td><input type="checkbox" name="household_screened[]" ${member['screened'] == 1 ? 'checked' : ''}></td>
+                                    <td><button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">Remove</button></td>
+                                `;
+                                tbody.appendChild(row);
+                            });
+                        }
 
-                        Object.entries(otherFields).forEach(([field, value]) => {
-                            if (value !== null && value !== undefined) {
-                                $(`input[name="${field}"]`).val(value);
-                            }
-                        });
-
-                        // Log missing fields for debugging
-                        console.log('Missing or null fields:', Object.entries(otherFields)
-                            .filter(([_, value]) => value === null || value === undefined)
-                            .map(([field]) => field));
-
-                        // Show the modal and update form state
+                        // Show modal and update form state
                         const modal = new bootstrap.Modal(document.getElementById('addLaboratoryModal'));
                         modal.show();
                         
                         // Update form button and add record ID
-                        $('input[name="lab_record_id"]').val(id);
+                        $('input[name="lab_record_id"]').val(data.id);
                         $('#form-button').text('Update Record');
-                        
-                        console.log('Successfully populated form data');
 
                     } catch (error) {
                         console.error('Error while populating form:', error);
@@ -1590,4 +1579,5 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
       </div>
     </div>
   </div>
+</body>
 </body>

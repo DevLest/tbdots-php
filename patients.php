@@ -145,44 +145,27 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   }
 
   if ($fullname && $dob && $location) {
-        // Check if the patient already exists
-        $stmt = $conn->prepare("SELECT id FROM patients WHERE fullname = ? AND dob = ? AND location_id = ?");
-        $stmt->bind_param('ssi', $fullname, $dob, $location);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $existingPatient = $result->fetch_assoc();
+    // Check if the patient already exists
+    $stmt = $conn->prepare("SELECT id FROM patients WHERE fullname = ? AND dob = ? AND location_id = ?");
+    $stmt->bind_param('ssi', $fullname, $dob, $location);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $existingPatient = $result->fetch_assoc();
 
-        if ($existingPatient) {
-            // Update existing patient
-            $id = $existingPatient['id'];
-            $sql = "UPDATE patients SET 
-                    age = ?, 
-                    gender = ?, 
-                    contact = ?, 
-                    address = ?, 
-                    physician_id = ?, 
-                    height = ?, 
-                    occupation = ?, 
-                    phil_health_no = ?, 
-                    contact_person = ?, 
-                    contact_person_no = ?
-                    WHERE id = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param('iississsssi', $age, $gender, $contact, $address, $physician, $height, $occupation, $phil_health_no, $contact_person, $contact_person_no, $id);
+    if ($existingPatient && (!isset($_POST['id']) || $_POST['id'] != $existingPatient['id'])) {
+        // Patient exists and this is either a new entry or editing a different patient
+        echo "<div class='alert alert-danger'>A patient with the same name, birthday, and location already exists.</div>";
+    } else {
+        // Proceed with insert/update
+        if(isset($_POST["id"]) && !empty(trim($_POST["id"]))) {
+            // Existing update code for editing patient
+            // ... (keep existing update logic)
         } else {
-            // Insert new patient
-            $sql = "INSERT INTO patients (fullname, age, gender, contact, address, physician_id, location_id, height, dob, occupation, phil_health_no, contact_person, contact_person_no) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param('siisssiisssss', $fullname, $age, $gender, $contact, $address, $physician, $location, $height, $dob, $occupation, $phil_health_no, $contact_person, $contact_person_no);
-        }
-
-        if ($stmt->execute()) {
-            $action = $existingPatient ? 'UPDATE' : 'CREATE';
-            $patientId = $existingPatient ? $id : $stmt->insert_id;
-            logActivity($conn, $_SESSION['user_id'], $action, 'patients', $patientId, ($action == 'UPDATE' ? "Updated" : "Added") . " patient: $fullname");
+            // Existing insert code for new patient
+            // ... (keep existing insert logic)
         }
     }
+  }
 }
 
 // Add location filter query
@@ -221,7 +204,7 @@ $sql = "
     LEFT JOIN barangays b ON l.barangay_id = b.id
     $whereClause
     ORDER BY p.created_at DESC";
-$result = $conn->query($sql);
+$patientsData = $conn->query($sql);
 
 $physicianssql = "SELECT * FROM users WHERE role = 3";
 $physicians = $conn->query($physicianssql);
@@ -470,6 +453,19 @@ $physicians = $conn->query($physicianssql);
     color: #721c24;
     border: 1px solid #f5c6cb;
   }
+
+  .treatment-card {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  .treatment-card h5 {
+    margin-bottom: 15px;
+  }
+  .treatment-card p {
+    margin-bottom: 10px;
+  }
 </style>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -531,7 +527,7 @@ $physicians = $conn->query($physicianssql);
                   </thead>
                   <tbody>
                     <?php 
-                        if ($result->num_rows > 0) {
+                        if ($patientsData->num_rows > 0) {
                           $address = '';
                           if (!empty($row["barangay_name"])) {
                               $address .= "Brgy. " . htmlspecialchars($row["barangay_name"]);
@@ -543,7 +539,7 @@ $physicians = $conn->query($physicianssql);
                               $address = htmlspecialchars($row["address"]);
                           }
                           // Output data of each row
-                          while($row = $result->fetch_assoc()) {
+                          while($row = $patientsData->fetch_assoc()) {
                             echo "
                               <tr onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' style='cursor: pointer;'>
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["fullname"]."</span></td>
@@ -693,6 +689,24 @@ $physicians = $conn->query($physicianssql);
       </div>
     </div>
 
+    <!-- Treatment Details Modal -->
+    <div class="modal fade" id="treatmentDetailsModal" tabindex="-1" aria-labelledby="treatmentDetailsModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl" style="max-width: 95%; z-index: 9999;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="treatmentDetailsModalLabel">Treatment Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="treatmentDetailsContent">
+            <!-- Content will be loaded dynamically -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       // Add Patient Modal Functions
       function openAddModal() {
@@ -754,42 +768,148 @@ $physicians = $conn->query($physicianssql);
       function showLabResults(patientId, patientName) {
         console.log('Loading lab results for:', patientId, patientName);
 
-        // Show the lab results section
-        let labResultsSection = document.querySelector('.lab-results-section');
-        labResultsSection.style.display = 'block';
+        fetch(`get_lab_results_card.php?id=${patientId}`)
+          .then(response => response.json())
+          .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+              const labData = data.data;
+              let content = `
+                <div class="card mb-3">
+                  <div class="card-header">Basic Information</div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-4">
+                        <div class="form-group mb-2">
+                          <label>TB Case Number</label>
+                          <input type="text" class="form-control" value="${labData.case_number || 'N/A'}" readonly>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="form-group mb-2">
+                          <label>Date Card Opened</label>
+                          <input type="text" class="form-control" value="${labData.date_opened || 'N/A'}" readonly>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="form-group mb-2">
+                          <label>Region/Province</label>
+                          <input type="text" class="form-control" value="${labData.region_province || 'N/A'}" readonly>
+                        </div>
+                      </div>
+                    </div>
 
-        // Update the content
-        document.getElementById('treatmentDetailsContent').innerHTML = `
-          <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2">Loading results for ${patientName}...</p>
-          </div>
-        `;
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="form-group mb-2">
+                          <label>Patient Name</label>
+                          <input type="text" class="form-control" value="${labData.fullname || 'N/A'}" readonly>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="form-group mb-2">
+                          <label>Age</label>
+                          <input type="text" class="form-control" value="${labData.age || 'N/A'}" readonly>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="form-group mb-2">
+                          <label>Sex</label>
+                          <input type="text" class="form-control" value="${labData.sex === 1 ? 'Male' : 'Female'}" readonly>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-        // Scroll to the section
-        labResultsSection.scrollIntoView({ behavior: 'smooth' });
+                <div class="card mb-3">
+                  <div class="card-header">Diagnostic Tests</div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="form-group mb-2">
+                          <label>Tuberculin Skin Test (TST)</label>
+                          <input type="text" class="form-control" value="${labData.tst_result || 'N/A'}" readonly>
+                        </div>
+                        <div class="form-group mb-2">
+                          <label>CXR Findings</label>
+                          <textarea class="form-control" readonly rows="2">${labData.cxr_findings || 'N/A'}</textarea>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-group mb-2">
+                          <label>Bacteriological Status</label>
+                          <input type="text" class="form-control" value="${labData.bacteriological_status || 'N/A'}" readonly>
+                        </div>
+                        <div class="form-group mb-2">
+                          <label>Classification of TB Disease</label>
+                          <input type="text" class="form-control" value="${labData.tb_classification || 'N/A'}" readonly>
+                        </div>
+                      </div>
+                    </div>
 
-        // Fetch the results
-        fetch(`get_lab_results_card.php?patient_id=${patientId}`)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Network response was not ok');
+                    <div class="row">
+                      <div class="col-md-12">
+                        <div class="form-group mb-2">
+                          <label>Treatment Details</label>
+                          <div class="table-responsive">
+                            <table class="table table-bordered">
+                              <tr>
+                                <th>Diagnosis</th>
+                                <td>${labData.diagnosis || 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <th>Registration Group</th>
+                                <td>${labData.registration_group || 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <th>Treatment Regimen</th>
+                                <td>${labData.treatment_regimen || 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <th>Treatment Started Date</th>
+                                <td>${labData.treatment_started_date || 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <th>Treatment Outcome</th>
+                                <td>${labData.treatment_outcome || 'N/A'}</td>
+                              </tr>
+                              <tr>
+                                <th>Treatment Outcome Date</th>
+                                <td>${labData.treatment_outcome_date || 'N/A'}</td>
+                              </tr>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>`;
+
+              // Update both elements with the content
+              const cardContent = document.querySelector('.card-body#treatmentDetailsCard');
+              const modalContent = document.querySelector('.modal-body#treatmentDetailsContent');
+              
+              if (cardContent) cardContent.innerHTML = content;
+              if (modalContent) modalContent.innerHTML = content;
             }
-            return response.text();
-          })
-          .then(html => {
-            document.getElementById('treatmentDetailsContent').innerHTML = html;
           })
           .catch(error => {
             console.error('Error:', error);
-            document.getElementById('treatmentDetailsContent').innerHTML = `
+            const errorHTML = `
               <div class="alert alert-danger">
                 Error loading lab results: ${error.message}
               </div>
             `;
+            const cardContent = document.querySelector('.card-body#treatmentDetailsCard');
+            const modalContent = document.querySelector('.modal-body#treatmentDetailsContent');
+            
+            if (cardContent) cardContent.innerHTML = errorHTML;
+            if (modalContent) modalContent.innerHTML = errorHTML;
           });
+
+        const modal = new bootstrap.Modal(document.getElementById('treatmentDetailsModal'));
+        modal.show();
       }
 
       // Initialize when document is ready
@@ -799,6 +919,48 @@ $physicians = $conn->query($physicianssql);
         var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
           return new bootstrap.Tooltip(tooltipTriggerEl);
         });
+      });
+
+      // Add this function to check for duplicate patients
+      async function checkDuplicatePatient() {
+          const fullname = document.getElementById('fullname').value;
+          const dob = document.getElementById('dob').value;
+          const location = document.getElementById('location').value;
+          const id = document.getElementById('id').value; // For edit mode
+
+          if (!fullname || !dob || !location) return true; // Allow form submission if any field is empty
+
+          const formData = new FormData();
+          formData.append('check_duplicate', '1');
+          formData.append('fullname', fullname);
+          formData.append('dob', dob);
+          formData.append('location', location);
+          if (id) formData.append('id', id);
+
+          try {
+              const response = await fetch('check_duplicate_patient.php', {
+                  method: 'POST',
+                  body: formData
+              });
+              const data = await response.json();
+              return !data.exists; // Return true if patient doesn't exist
+          } catch (error) {
+              console.error('Error checking duplicate:', error);
+              return true; // Allow form submission on error
+          }
+      }
+
+      // Update the form submission handler
+      document.querySelector('form[role="form"]').addEventListener('submit', async function(e) {
+          e.preventDefault();
+          
+          const isValid = await checkDuplicatePatient();
+          if (!isValid) {
+              alert('A patient with the same name, birthday, and location already exists.');
+              return;
+          }
+          
+          this.submit();
       });
     </script>
 

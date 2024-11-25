@@ -1,125 +1,109 @@
 <?php
 session_start();
-require_once "connection/db.php";
+require_once('connection/db.php');
 
-if (!isset($_SESSION['user_id']) || !isset($_GET['patient_id'])) {
-    exit('Unauthorized access');
+header('Content-Type: application/json');
+
+function debug_log($message, $data = null) {
+    error_log("DEBUG: " . $message . ($data ? " - " . json_encode($data) : ""));
 }
 
-$patient_id = intval($_GET['patient_id']);
-
-// Fetch treatment card data with related information
-$sql = "SELECT 
-    t.*,
-    p.fullname,
-    p.age,
-    p.gender,
-    p.address,
-    p.contact,
-    p.dob,
-    p.height,
-    p.bcg_scar,
-    p.occupation,
-    p.phil_health_no,
-    p.contact_person,
-    p.contact_person_no,
-    u.first_name as physician_name,
-    u.last_name as physician_lastname
-FROM lab_results t
-JOIN patients p ON t.patient_id = p.id
-JOIN users u ON t.physician_id = u.id
-WHERE t.patient_id = ?
-ORDER BY t.created_at DESC";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param('i', $patient_id);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows === 0) {
-    exit('Record not found');
+if (!isset($_GET['id'])) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'No ID provided'
+    ]);
+    exit;
 }
 
-// Fetch all treatment cards for this patient
-$treatmentCards = $result->fetch_all(MYSQLI_ASSOC);
+try {
+    debug_log("Fetching laboratory record for ID: " . $_GET['id']);
 
-// Output each treatment card
-foreach ($treatmentCards as $data) {
-    // Fetch household members for this treatment card
-    $householdSql = "SELECT * FROM household_members WHERE treatment_card_id = ?";
+    // Main query
+    $sql = "SELECT 
+        l.*,
+        p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
+        p.height, p.occupation, p.phil_health_no, p.contact_person, 
+        p.contact_person_no as contact_number,
+        dh.has_history, dh.duration, dh.drugs_taken
+        FROM lab_results l 
+        LEFT JOIN patients p ON l.patient_id = p.id 
+        LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
+        WHERE p.id = ?";
+            
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $_GET['id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $labData = $result->fetch_assoc();
+
+    debug_log("Main laboratory data retrieved", $labData);
+
+    if (!$labData) {
+        throw new Exception("Laboratory record not found");
+    }
+
+    // Get DSSM results
+    $dssmSql = "SELECT * FROM dssm_results WHERE lab_results_id = ? ORDER BY month";
+    $dssmStmt = $conn->prepare($dssmSql);
+    $dssmStmt->bind_param("i", $_GET['id']);
+    $dssmStmt->execute();
+    $dssmResult = $dssmStmt->get_result();
+    $labData['dssm_results'] = [];
+    while ($row = $dssmResult->fetch_assoc()) {
+        $labData['dssm_results'][] = $row;
+    }
+    debug_log("DSSM results retrieved", $labData['dssm_results']);
+
+    // Get household members
+    $householdSql = "SELECT first_name, age, screened 
+                     FROM household_members 
+                     WHERE lab_results_id = ?";
     $householdStmt = $conn->prepare($householdSql);
-    $householdStmt->bind_param('i', $data['id']);
+    $householdStmt->bind_param("i", $_GET['id']);
     $householdStmt->execute();
-    $household = $householdStmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    ?>
+    $householdResult = $householdStmt->get_result();
+    $labData['household_members'] = [];
+    while ($row = $householdResult->fetch_assoc()) {
+        $labData['household_members'][] = $row;
+    }
+    debug_log("Household members retrieved", $labData['household_members']);
 
-    <div class="card mb-4">
-        <div class="card-header">
-            Treatment Card #<?= htmlspecialchars($data['case_number']) ?>
-            <small class="text-muted float-end">
-                Created: <?= date('M d, Y', strtotime($data['created_at'])) ?>
-            </small>
-        </div>
-        <div class="card-body">
-            <!-- Basic Information -->
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <strong>TB Case Number:</strong> <?= htmlspecialchars($data['case_number']) ?>
-                </div>
-                <div class="col-md-4">
-                    <strong>Date Opened:</strong> <?= htmlspecialchars($data['date_opened']) ?>
-                </div>
-                <div class="col-md-4">
-                    <strong>Region/Province:</strong> <?= htmlspecialchars($data['region_province']) ?>
-                </div>
-            </div>
+    // Get drug dosages
+    $dosageSql = "SELECT * FROM drug_dosages WHERE lab_results_id = ?";
+    $dosageStmt = $conn->prepare($dosageSql);
+    $dosageStmt->bind_param("i", $_GET['id']);
+    $dosageStmt->execute();
+    $dosageResult = $dosageStmt->get_result();
+    $labData['drug_dosages'] = [];
+    while ($row = $dosageResult->fetch_assoc()) {
+        $labData['drug_dosages'][] = $row;
+    }
+    debug_log("Drug dosages retrieved", $labData['drug_dosages']);
 
-            <!-- Treatment Details -->
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <strong>Bacteriological Status:</strong> <?= htmlspecialchars($data['bacteriological_status'] ?? 'N/A') ?>
-                </div>
-                <div class="col-md-4">
-                    <strong>Diagnosis:</strong> <?= htmlspecialchars($data['diagnosis'] ?? 'N/A') ?>
-                </div>
-                <div class="col-md-4">
-                    <strong>Treatment Regimen:</strong> <?= htmlspecialchars($data['treatment_regimen'] ?? 'N/A') ?>
-                </div>
-            </div>
+    // Get clinical examinations
+    $examSql = "SELECT * FROM clinical_examinations WHERE lab_results_id = ? ORDER BY examination_date";
+    $examStmt = $conn->prepare($examSql);
+    $examStmt->bind_param("i", $_GET['id']);
+    $examStmt->execute();
+    $examResult = $examStmt->get_result();
+    $labData['clinical_examinations'] = [];
+    while ($row = $examResult->fetch_assoc()) {
+        $labData['clinical_examinations'][] = $row;
+    }
+    debug_log("Clinical examinations retrieved", $labData['clinical_examinations']);
 
-            <!-- Household Members -->
-            <?php if (!empty($household)): ?>
-            <div class="card mb-3">
-                <div class="card-header">
-                    Household Members
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Relationship</th>
-                                    <th>Contact</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($household as $member): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($member['name']) ?></td>
-                                    <td><?= htmlspecialchars($member['relationship']) ?></td>
-                                    <td><?= htmlspecialchars($member['contact']) ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
+    // Return success response
+    echo json_encode([
+        'success' => true,
+        'data' => $labData
+    ]);
 
-<?php
+} catch (Exception $e) {
+    debug_log("Error occurred: " . $e->getMessage());
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 }
-?>
+?> 

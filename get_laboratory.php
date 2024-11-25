@@ -4,6 +4,10 @@ require_once('connection/db.php');
 
 header('Content-Type: application/json');
 
+function debug_log($message, $data = null) {
+    error_log("DEBUG: " . $message . ($data ? " - " . json_encode($data) : ""));
+}
+
 if (!isset($_GET['id'])) {
     echo json_encode([
         'success' => false,
@@ -13,23 +17,27 @@ if (!isset($_GET['id'])) {
 }
 
 try {
-    // Get the main laboratory record
-    $sql = "SELECT l.*, p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
-            p.height, p.occupation, p.phil_health_no, p.contact_person, 
-            p.contact_person_no as contact_number,
-            h.*,
-            dh.has_history, dh.duration, dh.drugs_taken
-            FROM lab_results l 
-            LEFT JOIN patients p ON l.patient_id = p.id 
-            LEFT JOIN household_members h ON l.id = h.lab_results_id
-            LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
-            WHERE l.id = ?";
+    debug_log("Fetching laboratory record for ID: " . $_GET['id']);
+
+    // Main query
+    $sql = "SELECT 
+        l.*,
+        p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
+        p.height, p.occupation, p.phil_health_no, p.contact_person, 
+        p.contact_person_no as contact_number,
+        dh.has_history, dh.duration, dh.drugs_taken
+        FROM lab_results l 
+        LEFT JOIN patients p ON l.patient_id = p.id 
+        LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
+        WHERE l.id = ?";
             
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $_GET['id']);
     $stmt->execute();
     $result = $stmt->get_result();
     $labData = $result->fetch_assoc();
+
+    debug_log("Main laboratory data retrieved", $labData);
 
     if (!$labData) {
         throw new Exception("Laboratory record not found");
@@ -45,17 +53,21 @@ try {
     while ($row = $dssmResult->fetch_assoc()) {
         $labData['dssm_results'][] = $row;
     }
+    debug_log("DSSM results retrieved", $labData['dssm_results']);
 
-    // Get clinical examinations
-    $examSql = "SELECT * FROM clinical_examinations WHERE lab_results_id = ? ORDER BY examination_date";
-    $examStmt = $conn->prepare($examSql);
-    $examStmt->bind_param("i", $_GET['id']);
-    $examStmt->execute();
-    $examResult = $examStmt->get_result();
-    $labData['clinical_examinations'] = [];
-    while ($row = $examResult->fetch_assoc()) {
-        $labData['clinical_examinations'][] = $row;
+    // Get household members
+    $householdSql = "SELECT first_name, age, screened 
+                     FROM household_members 
+                     WHERE lab_results_id = ?";
+    $householdStmt = $conn->prepare($householdSql);
+    $householdStmt->bind_param("i", $_GET['id']);
+    $householdStmt->execute();
+    $householdResult = $householdStmt->get_result();
+    $labData['household_members'] = [];
+    while ($row = $householdResult->fetch_assoc()) {
+        $labData['household_members'][] = $row;
     }
+    debug_log("Household members retrieved", $labData['household_members']);
 
     // Get drug dosages
     $dosageSql = "SELECT * FROM drug_dosages WHERE lab_results_id = ?";
@@ -67,6 +79,19 @@ try {
     while ($row = $dosageResult->fetch_assoc()) {
         $labData['drug_dosages'][] = $row;
     }
+    debug_log("Drug dosages retrieved", $labData['drug_dosages']);
+
+    // Get clinical examinations
+    $examSql = "SELECT * FROM clinical_examinations WHERE lab_results_id = ? ORDER BY examination_date";
+    $examStmt = $conn->prepare($examSql);
+    $examStmt->bind_param("i", $_GET['id']);
+    $examStmt->execute();
+    $examResult = $examStmt->get_result();
+    $labData['clinical_examinations'] = [];
+    while ($row = $examResult->fetch_assoc()) {
+        $labData['clinical_examinations'][] = $row;
+    }
+    debug_log("Clinical examinations retrieved", $labData['clinical_examinations']);
 
     // Return success response
     echo json_encode([
@@ -75,6 +100,7 @@ try {
     ]);
 
 } catch (Exception $e) {
+    debug_log("Error occurred: " . $e->getMessage());
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
