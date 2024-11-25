@@ -9,6 +9,16 @@ if(!isset($_SESSION['user_id'])) {
 require_once "connection/db.php";
 include_once('head.php');
 
+// Define treatment outcomes
+$outcomes = [
+    'CURED',
+    'TREATMENT COMPLETE',
+    'TREATMENT FAILED',
+    'DIED',
+    'LOST TO FOLLOW UP',
+    'NOT EVALUATED'
+];
+
 // Add location filter query
 $locationsQuery = "
     SELECT l.id, m.location as municipality, b.name as barangay 
@@ -18,40 +28,48 @@ $locationsQuery = "
     ORDER BY m.location, b.name";
 $locations = $conn->query($locationsQuery);
 
-// Get selected location from URL parameter
-$selectedLocation = isset($_GET['location']) ? (int)$_GET['location'] : 0;
+// Get selected municipality from URL parameter
+$selectedMunicipality = isset($_GET['municipality']) ? (int)$_GET['municipality'] : 0;
 
-// Modify the location condition for all queries
-$locationCondition = $selectedLocation > 0 ? "AND p.location_id = $selectedLocation" : "";
+// Modify the location condition for all queries to use municipality
+$municipalityCondition = $selectedMunicipality > 0 ? "AND m.id = $selectedMunicipality" : "";
 
 // Get statistics for the cards
 $thisWeekPatients = $conn->query("
     SELECT COUNT(*) as count 
     FROM patients p
-    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)
-    $locationCondition
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE p.created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK)
+    $municipalityCondition
 ")->fetch_assoc();
 
 $totalConfined = $conn->query("
     SELECT COUNT(*) as count 
-    FROM lab_results l
-    JOIN patients p ON l.patient_id = p.id
-    WHERE l.treatment_outcome IS NULL
-    $locationCondition
+    FROM lab_results lr
+    JOIN patients p ON lr.patient_id = p.id
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE lr.treatment_outcome IS NULL
+    $municipalityCondition
 ")->fetch_assoc();
 
 $newPatients = $conn->query("
     SELECT COUNT(*) as count 
     FROM patients p
-    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-    $locationCondition
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE p.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    $municipalityCondition
 ")->fetch_assoc();
 
 $totalAnnualPatients = $conn->query("
     SELECT COUNT(*) as count 
     FROM patients p
-    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
-    $locationCondition
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE p.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    $municipalityCondition
 ")->fetch_assoc();
 
 // Get recent patients for the table
@@ -60,10 +78,11 @@ $recentPatientsSql = "
         m.location as municipality_name,
         b.name as barangay_name 
     FROM patients p
-    LEFT JOIN municipalities m ON p.location_id = m.id
-    LEFT JOIN barangays b ON b.municipality_id = m.id
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    JOIN barangays b ON l.barangay_id = b.id
     WHERE 1=1 
-    $locationCondition
+    $municipalityCondition
     ORDER BY p.created_at DESC 
     LIMIT 10";
 
@@ -73,9 +92,11 @@ $recentPatients = $conn->query($recentPatientsSql);
 $lastWeekPatients = $conn->query("
     SELECT COUNT(*) as count 
     FROM patients p
-    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 WEEK), INTERVAL 1 WEEK)
-    AND created_at < DATE_SUB(NOW(), INTERVAL 1 WEEK)
-    $locationCondition
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE p.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 WEEK), INTERVAL 1 WEEK)
+    AND p.created_at < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+    $municipalityCondition
 ")->fetch_assoc();
 
 $weeklyChange = $lastWeekPatients['count'] > 0 
@@ -87,10 +108,12 @@ $lastMonthConfined = $conn->query("
     SELECT COUNT(*) as count 
     FROM lab_results l
     JOIN patients p ON l.patient_id = p.id
+    JOIN locations loc ON p.location_id = loc.id
+    JOIN municipalities m ON loc.municipality_id = m.id
     WHERE l.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 MONTH), INTERVAL 1 MONTH)
     AND l.created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)
     AND l.treatment_outcome IS NULL
-    $locationCondition
+    $municipalityCondition
 ")->fetch_assoc();
 
 $confinedChange = $lastMonthConfined['count'] > 0
@@ -101,9 +124,11 @@ $confinedChange = $lastMonthConfined['count'] > 0
 $previousDayPatients = $conn->query("
     SELECT COUNT(*) as count 
     FROM patients p
-    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 24 HOUR), INTERVAL 24 HOUR)
-    AND created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
-    $locationCondition
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE p.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 24 HOUR), INTERVAL 24 HOUR)
+    AND p.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    $municipalityCondition
 ")->fetch_assoc();
 
 $dailyChange = $previousDayPatients['count'] > 0
@@ -114,9 +139,11 @@ $dailyChange = $previousDayPatients['count'] > 0
 $previousYearPatients = $conn->query("
     SELECT COUNT(*) as count 
     FROM patients p
-    WHERE created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 YEAR), INTERVAL 1 YEAR)
-    AND created_at < DATE_SUB(NOW(), INTERVAL 1 YEAR)
-    $locationCondition
+    JOIN locations l ON p.location_id = l.id
+    JOIN municipalities m ON l.municipality_id = m.id
+    WHERE p.created_at >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 YEAR), INTERVAL 1 YEAR)
+    AND p.created_at < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    $municipalityCondition
 ")->fetch_assoc();
 
 $annualChange = $previousYearPatients['count'] > 0
@@ -131,9 +158,11 @@ $query = "
         COUNT(*) as count
     FROM lab_results l
     JOIN patients p ON l.patient_id = p.id
+    JOIN locations loc ON p.location_id = loc.id
+    JOIN municipalities m ON loc.municipality_id = m.id
     WHERE l.treatment_outcome = 'CURED'
     AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
-    $locationCondition
+    $municipalityCondition
     GROUP BY DATE_FORMAT(l.treatment_outcome_date, '%Y-%m'), 
              DATE_FORMAT(l.treatment_outcome_date, '%b')
     ORDER BY month_year ASC";
@@ -156,64 +185,105 @@ $healedData = [];
 // Get last 9 months
 $months = [];
 for ($i = 8; $i >= 0; $i--) {
-    $month = date('M', strtotime("-$i months"));
-    $months[$month] = 0;
+    $monthDate = date('Y-m', strtotime("-$i months"));
+    $monthLabel = date('M', strtotime("-$i months"));
+    $months[$monthDate] = [
+        'label' => $monthLabel,
+        'count' => 0
+    ];
 }
 
 // Fill in actual data
 foreach ($healedPatients as $record) {
-    $months[$record['month']] = (int)$record['count'];
-}
-
-// Convert to JSON for JavaScript
-$healedLabels = json_encode(array_keys($months));
-$healedData = json_encode(array_values($months));
-
-// After the existing healed patients query, add this new query for all treatment outcomes
-$treatmentOutcomesQuery = "
-    SELECT 
-        DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
-        DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
-        l.treatment_outcome,
-        COUNT(*) as count
-    FROM lab_results l
-    JOIN patients p ON l.patient_id = p.id
-    WHERE l.treatment_outcome IN ('CURED', 'TREATMENT COMPLETE', 'TREATMENT FAILED', 'DIED', 'LOST TO FOLLOW UP', 'NOT EVALUATED')
-    AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
-    $locationCondition
-    GROUP BY DATE_FORMAT(l.treatment_outcome_date, '%Y-%m'), 
-             DATE_FORMAT(l.treatment_outcome_date, '%b'),
-             l.treatment_outcome
-    ORDER BY month_year ASC";
-
-$treatmentResults = $conn->query($treatmentOutcomesQuery);
-
-// Initialize arrays for each treatment outcome
-$outcomes = ['CURED', 'TREATMENT COMPLETE', 'TREATMENT FAILED', 'DIED', 'LOST TO FOLLOW UP', 'NOT EVALUATED'];
-$treatmentData = [];
-
-// Get last 9 months
-$months = [];
-for ($i = 8; $i >= 0; $i--) {
-    $month = date('M', strtotime("-$i months"));
-    $months[$month] = 0;
-}
-
-// Initialize data structure
-foreach ($outcomes as $outcome) {
-    $treatmentData[$outcome] = array_merge([], $months);
-}
-
-// Fill in actual data
-while ($record = $treatmentResults->fetch_assoc()) {
-    if (isset($treatmentData[$record['treatment_outcome']][$record['month']])) {
-        $treatmentData[$record['treatment_outcome']][$record['month']] = (int)$record['count'];
+    if (isset($months[$record['month_year']])) {
+        $months[$record['month_year']]['count'] = (int)$record['count'];
     }
 }
 
 // Convert to JSON for JavaScript
-$monthLabels = json_encode(array_keys($months));
+$healedLabels = json_encode(array_column($months, 'label'));
+$healedData = json_encode(array_column($months, 'count'));
+
+// Modify the treatment outcomes query
+$treatmentOutcomesQuery = "
+    SELECT 
+        l.treatment_outcome,
+        DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
+        DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
+        COUNT(*) as count
+    FROM lab_results l
+    JOIN patients p ON l.patient_id = p.id
+    JOIN locations loc ON p.location_id = loc.id
+    JOIN municipalities m ON loc.municipality_id = m.id
+    WHERE l.treatment_outcome IS NOT NULL
+    AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
+    $municipalityCondition
+    GROUP BY 
+        l.treatment_outcome, 
+        DATE_FORMAT(l.treatment_outcome_date, '%b'),
+        DATE_FORMAT(l.treatment_outcome_date, '%Y-%m')
+    ORDER BY month_year ASC";
+
+$treatmentResults = $conn->query($treatmentOutcomesQuery);
+
+// Initialize data structure for all months and outcomes
+$treatmentData = [];
+foreach ($outcomes as $outcome) {
+    $treatmentData[$outcome] = [];
+    foreach ($months as $monthDate => $monthInfo) {
+        $treatmentData[$outcome][$monthInfo['label']] = 0;
+    }
+}
+
+// Fill in actual data
+while ($row = $treatmentResults->fetch_assoc()) {
+    if (isset($treatmentData[$row['treatment_outcome']][$row['month']])) {
+        $treatmentData[$row['treatment_outcome']][$row['month']] = (int)$row['count'];
+    }
+}
+
+// Convert to JSON for JavaScript
+$monthLabels = json_encode(array_column($months, 'label'));
 $treatmentDataJSON = json_encode($treatmentData);
+
+// Update the municipality statistics query to use the correct join condition
+$municipalityStatsQuery = "
+    SELECT 
+        m.id as municipality_id,
+        m.location as municipality_name,
+        COUNT(p.id) as patient_count,
+        COUNT(CASE WHEN p.created_at >= DATE_SUB(NOW(), INTERVAL 1 WEEK) THEN 1 END) as weekly_count,
+        COUNT(CASE WHEN p.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR) THEN 1 END) as yearly_count
+    FROM municipalities m
+    LEFT JOIN locations l ON l.municipality_id = m.id
+    LEFT JOIN patients p ON p.location_id = l.id
+    GROUP BY m.id, m.location
+    ORDER BY m.location";
+
+$municipalityStats = $conn->query($municipalityStatsQuery);
+
+// Define arrays of icons and gradient colors to cycle through
+$icons = [
+    'location_city',
+    'apartment',
+    'home_work',
+    'business',
+    'domain',
+    'house',
+    'maps_home_work',
+    'other_houses'
+];
+
+$gradients = [
+    'primary' => 'bg-gradient-primary shadow-primary',
+    'success' => 'bg-gradient-success shadow-success',
+    'info' => 'bg-gradient-info shadow-info',
+    'warning' => 'bg-gradient-warning shadow-warning',
+    'danger' => 'bg-gradient-danger shadow-danger',
+    'dark' => 'bg-gradient-dark shadow-dark',
+    'secondary' => 'bg-gradient-secondary shadow-secondary',
+    'light' => 'bg-gradient-light shadow-light'
+];
 ?>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -231,11 +301,15 @@ $treatmentDataJSON = json_encode($treatmentData);
             <div class="card-body p-3">
               <form method="GET" class="row align-items-center">
                 <div class="col-md-10">
-                  <select name="location" class="form-select" onchange="this.form.submit()">
-                    <option value="0">All Locations</option>
-                    <?php while($loc = $locations->fetch_assoc()): ?>
-                      <option value="<?php echo $loc['id']; ?>" <?php echo $selectedLocation == $loc['id'] ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($loc['municipality'] . ' - ' . $loc['barangay']); ?>
+                  <select name="municipality" class="form-select" onchange="this.form.submit()">
+                    <option value="0">All Municipalities</option>
+                    <?php 
+                    $municipalitiesQuery = "SELECT DISTINCT m.id, m.location FROM municipalities m ORDER BY m.location";
+                    $municipalities = $conn->query($municipalitiesQuery);
+                    while($mun = $municipalities->fetch_assoc()): 
+                    ?>
+                      <option value="<?php echo $mun['id']; ?>" <?php echo $selectedMunicipality == $mun['id'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($mun['location']); ?>
                       </option>
                     <?php endwhile; ?>
                   </select>
@@ -248,95 +322,46 @@ $treatmentDataJSON = json_encode($treatmentData);
           </div>
         </div>
       </div>
-      <div class="row">
-        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <div class="card">
-            <div class="card-header p-3 pt-2">
-              <div class="icon icon-lg icon-shape bg-gradient-dark shadow-dark text-center border-radius-xl mt-n4 position-absolute">
-                <i class="material-icons opacity-10">weekend</i>
-              </div>
-              <div class="text-end pt-1">
-                <p class="text-sm mb-0 text-capitalize">This weeks Patients</p>
-                <h4 class="mb-0"><?php echo $thisWeekPatients['count']; ?></h4>
-              </div>
+      <div class="row mt-4">
+        <?php 
+        $iconIndex = 0;
+        $gradientIndex = 0;
+        $gradientClasses = array_values($gradients);
+        
+        while($stat = $municipalityStats->fetch_assoc()): 
+            // Cycle through icons and gradients
+            $icon = $icons[$iconIndex % count($icons)];
+            $gradient = $gradientClasses[$gradientIndex % count($gradientClasses)];
+            
+            // Increment counters
+            $iconIndex++;
+            $gradientIndex++;
+        ?>
+        <div class="col-xl-3 col-sm-6 mb-4">
+            <div class="card" onclick="filterByMunicipality(<?php echo $stat['municipality_id']; ?>, '<?php echo htmlspecialchars($stat['municipality_name'], ENT_QUOTES); ?>')" style="cursor: pointer;">
+                <div class="card-header p-3 pt-2">
+                    <div class="icon icon-lg icon-shape <?php echo $gradient; ?> text-center border-radius-xl mt-n4 position-absolute">
+                        <i class="material-icons opacity-10"><?php echo $icon; ?></i>
+                    </div>
+                    <div class="text-end pt-1">
+                        <p class="text-sm mb-0 text-capitalize"><?php echo htmlspecialchars($stat['municipality_name']); ?></p>
+                        <h4 class="mb-0"><?php echo $stat['patient_count']; ?></h4>
+                    </div>
+                </div>
+                <hr class="dark horizontal my-0">
+                <div class="card-footer p-3">
+                    <p class="mb-0">
+                        <span class="text-primary text-sm font-weight-bolder me-2">
+                            <?php echo $stat['weekly_count']; ?> this week
+                        </span>
+                        <span class="text-success text-sm font-weight-bolder">
+                            <?php echo $stat['yearly_count']; ?> this year
+                        </span>
+                    </p>
+                </div>
             </div>
-            <hr class="dark horizontal my-0">
-            <div class="card-footer p-3">
-              <p class="mb-0">
-                <span class="text-<?php echo $weeklyChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
-                  <?php echo ($weeklyChange >= 0 ? '+' : '') . $weeklyChange; ?>%
-                </span> 
-                than last week
-              </p>
-            </div>
-          </div>
         </div>
-        <!-- <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <div class="card">
-            <div class="card-header p-3 pt-2">
-              <div class="icon icon-lg icon-shape bg-gradient-primary shadow-primary text-center border-radius-xl mt-n4 position-absolute">
-                <i class="material-icons opacity-10">person</i>
-              </div>
-              <div class="text-end pt-1">
-                <p class="text-sm mb-0 text-capitalize">Number of Confined</p>
-                <h4 class="mb-0"><?php echo $totalConfined['count']; ?></h4>
-              </div>
-            </div>
-            <hr class="dark horizontal my-0">
-            <div class="card-footer p-3">
-              <p class="mb-0">
-                <span class="text-<?php echo $confinedChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
-                  <?php echo ($confinedChange >= 0 ? '+' : '') . $confinedChange; ?>%
-                </span> 
-                than last month
-              </p>
-            </div>
-          </div>
-        </div> -->
-        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
-          <div class="card">
-            <div class="card-header p-3 pt-2">
-              <div class="icon icon-lg icon-shape bg-gradient-success shadow-success text-center border-radius-xl mt-n4 position-absolute">
-                <i class="material-icons opacity-10">person</i>
-              </div>
-              <div class="text-end pt-1">
-                <p class="text-sm mb-0 text-capitalize">New Patients</p>
-                <h4 class="mb-0"><?php echo $newPatients['count']; ?></h4>
-              </div>
-            </div>
-            <hr class="dark horizontal my-0">
-            <div class="card-footer p-3">
-              <p class="mb-0">
-                <span class="text-<?php echo $dailyChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
-                  <?php echo ($dailyChange >= 0 ? '+' : '') . $dailyChange; ?>%
-                </span> 
-                than yesterday
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="col-xl-3 col-sm-6">
-          <div class="card">
-            <div class="card-header p-3 pt-2">
-              <div class="icon icon-lg icon-shape bg-gradient-info shadow-info text-center border-radius-xl mt-n4 position-absolute">
-                <i class="material-icons opacity-10">weekend</i>
-              </div>
-              <div class="text-end pt-1">
-                <p class="text-sm mb-0 text-capitalize">Total Patients / Annually</p>
-                <h4 class="mb-0"><?php echo $totalAnnualPatients['count']; ?></h4>
-              </div>
-            </div>
-            <hr class="dark horizontal my-0">
-            <div class="card-footer p-3">
-              <p class="mb-0">
-                <span class="text-<?php echo $annualChange >= 0 ? 'success' : 'danger'; ?> text-sm font-weight-bolder">
-                  <?php echo ($annualChange >= 0 ? '+' : '') . $annualChange; ?>%
-                </span> 
-                than Last Year
-              </p>
-            </div>
-          </div>
-        </div>
+        <?php endwhile; ?>
       </div>
       <div class="row mt-4">
         <?php foreach ($outcomes as $outcome): ?>
@@ -361,6 +386,34 @@ $treatmentDataJSON = json_encode($treatmentData);
           </div>
         </div>
         <?php endforeach; ?>
+      </div>
+      <div class="row mt-4">
+        <?php while($stat = $municipalityStats->fetch_assoc()): ?>
+        <div class="col-xl-3 col-sm-6 mb-4">
+            <div class="card">
+                <div class="card-header p-3 pt-2">
+                    <div class="icon icon-lg icon-shape bg-gradient-info shadow-info text-center border-radius-xl mt-n4 position-absolute">
+                        <i class="material-icons opacity-10">location_city</i>
+                    </div>
+                    <div class="text-end pt-1">
+                        <p class="text-sm mb-0 text-capitalize"><?php echo htmlspecialchars($stat['municipality_name']); ?></p>
+                        <h4 class="mb-0"><?php echo $stat['patient_count']; ?></h4>
+                    </div>
+                </div>
+                <hr class="dark horizontal my-0">
+                <div class="card-footer p-3">
+                    <p class="mb-0">
+                        <span class="text-primary text-sm font-weight-bolder me-2">
+                            <?php echo $stat['weekly_count']; ?> this week
+                        </span>
+                        <span class="text-success text-sm font-weight-bolder">
+                            <?php echo $stat['yearly_count']; ?> this year
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <?php endwhile; ?>
       </div>
       <div class="row mb-4">
         <div class="col-lg-8 col-md-6 mb-md-0 mb-4">
@@ -428,75 +481,6 @@ $treatmentDataJSON = json_encode($treatmentData);
             </div>
           </div>
         </div>
-        <!-- <div class="col-lg-4 col-md-6">
-          <div class="card h-100">
-            <div class="card-header pb-0">
-              <h6>Performance overview</h6>
-              <p class="text-sm">
-                <i class="fa fa-arrow-up text-success" aria-hidden="true"></i>
-                <span class="font-weight-bold">24%</span> this month
-              </p>
-            </div>
-            <div class="card-body p-3">
-              <div class="timeline timeline-one-side">
-                <div class="timeline-block mb-3">
-                  <span class="timeline-step">
-                    <i class="material-icons text-success text-gradient">notifications</i>
-                  </span>
-                  <div class="timeline-content">
-                    <h6 class="text-dark text-sm font-weight-bold mb-0">300, Discharge this month</h6>
-                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">23 DEC 7:20 PM</p>
-                  </div>
-                </div>
-                <div class="timeline-block mb-3">
-                  <span class="timeline-step">
-                    <i class="material-icons text-danger text-gradient">code</i>
-                  </span>
-                  <div class="timeline-content">
-                    <h6 class="text-dark text-sm font-weight-bold mb-0">Good service</h6>
-                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">24 DEC 11 PM</p>
-                  </div>
-                </div>
-                <div class="timeline-block mb-3">
-                  <span class="timeline-step">
-                    <i class="material-icons text-info text-gradient">shopping_cart</i>
-                  </span>
-                  <div class="timeline-content">
-                    <h6 class="text-dark text-sm font-weight-bold mb-0">Admitted Rates</h6>
-                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">24 DEC 9:34 PM</p>
-                  </div>
-                </div>
-                <div class="timeline-block mb-3">
-                  <span class="timeline-step">
-                    <i class="material-icons text-warning text-gradient">credit_card</i>
-                  </span>
-                  <div class="timeline-content">
-                    <h6 class="text-dark text-sm font-weight-bold mb-0">Indigency</h6>
-                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">20 DEC 2:20 AM</p>
-                  </div>
-                </div>
-                <div class="timeline-block mb-3">
-                  <span class="timeline-step">
-                    <i class="material-icons text-primary text-gradient">key</i>
-                  </span>
-                  <div class="timeline-content">
-                    <h6 class="text-dark text-sm font-weight-bold mb-0">Death</h6>
-                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">18 DEC 4:54 AM</p>
-                  </div>
-                </div>
-                <div class="timeline-block">
-                  <span class="timeline-step">
-                    <i class="material-icons text-dark text-gradient">payments</i>
-                  </span>
-                  <div class="timeline-content">
-                    <h6 class="text-dark text-sm font-weight-bold mb-0">Healed</h6>
-                    <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">17 DEC</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div> -->
       </div>
       <?php
         include_once('footer.php');
@@ -510,344 +494,102 @@ $treatmentDataJSON = json_encode($treatmentData);
   <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
   <script src="../assets/js/plugins/chartjs.min.js"></script>
   <script>
-    // var ctx = document.getElementById("chart-bars").getContext("2d");
-
-    // new Chart(ctx, {
-    //   type: "bar",
-    //   data: {
-    //     labels: ["M", "T", "W", "T", "F", "S", "S"],
-    //     datasets: [{
-    //       label: "Sales",
-    //       tension: 0.4,
-    //       borderWidth: 0,
-    //       borderRadius: 4,
-    //       borderSkipped: false,
-    //       backgroundColor: "rgba(255, 255, 255, .8)",
-    //       data: [50, 20, 10, 22, 50, 10, 40],
-    //       maxBarThickness: 6
-    //     }, ],
-    //   },
-    //   options: {
-    //     responsive: true,
-    //     maintainAspectRatio: false,
-    //     plugins: {
-    //       legend: {
-    //         display: false,
-    //       }
-    //     },
-    //     interaction: {
-    //       intersect: false,
-    //       mode: 'index',
-    //     },
-    //     scales: {
-    //       y: {
-    //         grid: {
-    //           drawBorder: false,
-    //           display: true,
-    //           drawOnChartArea: true,
-    //           drawTicks: false,
-    //           borderDash: [5, 5],
-    //           color: 'rgba(255, 255, 255, .2)'
-    //         },
-    //         ticks: {
-    //           suggestedMin: 0,
-    //           suggestedMax: 500,
-    //           beginAtZero: true,
-    //           padding: 10,
-    //           font: {
-    //             size: 14,
-    //             weight: 300,
-    //             family: "Roboto",
-    //             style: 'normal',
-    //             lineHeight: 2
-    //           },
-    //           color: "#fff"
-    //         },
-    //       },
-    //       x: {
-    //         grid: {
-    //           drawBorder: false,
-    //           display: true,
-    //           drawOnChartArea: true,
-    //           drawTicks: false,
-    //           borderDash: [5, 5],
-    //           color: 'rgba(255, 255, 255, .2)'
-    //         },
-    //         ticks: {
-    //           display: true,
-    //           color: '#f8f9fa',
-    //           padding: 10,
-    //           font: {
-    //             size: 14,
-    //             weight: 300,
-    //             family: "Roboto",
-    //             style: 'normal',
-    //             lineHeight: 2
-    //           },
-    //         }
-    //       },
-    //     },
-    //   },
-    // });
-
-
-    var ctx2 = document.getElementById("chart-line").getContext("2d");
-
-    new Chart(ctx2, {
-      type: "line",
-      data: {
-        labels: ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-        datasets: [{
-          label: "Mobile apps",
-          tension: 0,
-          borderWidth: 0,
-          pointRadius: 5,
-          pointBackgroundColor: "rgba(255, 255, 255, .8)",
-          pointBorderColor: "transparent",
-          borderColor: "rgba(255, 255, 255, .8)",
-          borderColor: "rgba(255, 255, 255, .8)",
-          borderWidth: 4,
-          backgroundColor: "transparent",
-          fill: true,
-          data: [50, 40, 300, 320, 500, 350, 200, 230, 500],
-          maxBarThickness: 6
-
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
-          }
-        },
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          y: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [5, 5],
-              color: 'rgba(255, 255, 255, .2)'
-            },
-            ticks: {
-              display: true,
-              color: '#f8f9fa',
-              padding: 10,
-              font: {
-                size: 14,
-                weight: 300,
-                family: "Roboto",
-                style: 'normal',
-                lineHeight: 2
-              },
-            }
-          },
-          x: {
-            grid: {
-              drawBorder: false,
-              display: false,
-              drawOnChartArea: false,
-              drawTicks: false,
-              borderDash: [5, 5]
-            },
-            ticks: {
-              display: true,
-              color: '#f8f9fa',
-              padding: 10,
-              font: {
-                size: 14,
-                weight: 300,
-                family: "Roboto",
-                style: 'normal',
-                lineHeight: 2
-              },
-            }
-          },
-        },
-      },
-    });
-
-    var ctx3 = document.getElementById("chart-line-tasks").getContext("2d");
-
-    new Chart(ctx3, {
-      type: "line",
-      data: {
-        labels: <?php echo $healedLabels; ?>,
-        datasets: [{
-          label: "Healed Patients",
-          tension: 0,
-          borderWidth: 0,
-          pointRadius: 5,
-          pointBackgroundColor: "rgba(255, 255, 255, .8)",
-          pointBorderColor: "transparent",
-          borderColor: "rgba(255, 255, 255, .8)",
-          borderWidth: 4,
-          backgroundColor: "transparent",
-          fill: true,
-          data: <?php echo $healedData; ?>,
-          maxBarThickness: 6
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
-          }
-        },
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          y: {
-            grid: {
-              drawBorder: false,
-              display: true,
-              drawOnChartArea: true,
-              drawTicks: false,
-              borderDash: [5, 5],
-              color: 'rgba(255, 255, 255, .2)'
-            },
-            ticks: {
-              display: true,
-              padding: 10,
-              color: '#f8f9fa',
-              font: {
-                size: 14,
-                weight: 300,
-                family: "Roboto",
-                style: 'normal',
-                lineHeight: 2
-              },
-            }
-          },
-          x: {
-            grid: {
-              drawBorder: false,
-              display: false,
-              drawOnChartArea: false,
-              drawTicks: false,
-              borderDash: [5, 5]
-            },
-            ticks: {
-              display: true,
-              color: '#f8f9fa',
-              padding: 10,
-              font: {
-                size: 14,
-                weight: 300,
-                family: "Roboto",
-                style: 'normal',
-                lineHeight: 2
-              },
-            }
-          },
-        },
-      },
-    });
-
+    // Initialize charts for each treatment outcome
     const treatmentData = <?php echo $treatmentDataJSON; ?>;
     const monthLabels = <?php echo $monthLabels; ?>;
-    const colors = {
-      'CURED': 'rgba(76, 175, 80, 0.8)',
-      'TREATMENT COMPLETE': 'rgba(33, 150, 243, 0.8)',
-      'TREATMENT FAILED': 'rgba(244, 67, 54, 0.8)',
-      'DIED': 'rgba(158, 158, 158, 0.8)',
-      'LOST TO FOLLOW UP': 'rgba(255, 152, 0, 0.8)',
-      'NOT EVALUATED': 'rgba(156, 39, 176, 0.8)'
+    const chartColors = {
+        'CURED': {
+            border: 'rgba(52, 152, 219, 1)',  // Soft blue
+            background: 'rgba(52, 152, 219, 0.1)'
+        },
+        'TREATMENT COMPLETE': {
+            border: 'rgba(46, 204, 113, 1)',  // Soft green
+            background: 'rgba(46, 204, 113, 0.1)'
+        },
+        'TREATMENT FAILED': {
+            border: 'rgba(231, 76, 60, 1)',   // Soft red
+            background: 'rgba(231, 76, 60, 0.1)'
+        },
+        'DIED': {
+            border: 'rgba(149, 165, 166, 1)', // Soft gray
+            background: 'rgba(149, 165, 166, 0.1)'
+        },
+        'LOST TO FOLLOW UP': {
+            border: 'rgba(243, 156, 18, 1)',  // Soft orange
+            background: 'rgba(243, 156, 18, 0.1)'
+        },
+        'NOT EVALUATED': {
+            border: 'rgba(155, 89, 182, 1)',  // Soft purple
+            background: 'rgba(155, 89, 182, 0.1)'
+        }
     };
 
+    // Create charts for each outcome
     Object.entries(treatmentData).forEach(([outcome, data]) => {
-      const canvasId = `chart-${outcome.toLowerCase().replace(/ /g, '-')}`;
-      const ctx = document.getElementById(canvasId).getContext("2d");
-      
-      new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: monthLabels,
-          datasets: [{
-            label: outcome,
-            tension: 0.4,
-            borderWidth: 0,
-            pointRadius: 2,
-            pointBackgroundColor: colors[outcome],
-            pointBorderColor: "transparent",
-            borderColor: colors[outcome],
-            borderWidth: 4,
-            backgroundColor: "transparent",
-            fill: true,
-            data: Object.values(data),
-            maxBarThickness: 6
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false,
-            }
-          },
-          interaction: {
-            intersect: false,
-            mode: 'index',
-          },
-          scales: {
-            y: {
-              grid: {
-                drawBorder: false,
-                display: true,
-                drawOnChartArea: true,
-                drawTicks: false,
-                borderDash: [5, 5],
-                color: 'rgba(255, 255, 255, .2)'
-              },
-              ticks: {
-                display: true,
-                padding: 10,
-                color: '#9ca2b7',
-                font: {
-                  size: 14,
-                  weight: 300,
-                  family: "Roboto",
-                  style: 'normal',
-                  lineHeight: 2
+        const canvasId = `chart-${outcome.toLowerCase().replace(/ /g, '-')}`;
+        const ctx = document.getElementById(canvasId);
+        
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: outcome,
+                        data: Object.values(data),
+                        borderColor: chartColors[outcome].border,
+                        backgroundColor: chartColors[outcome].background,
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: chartColors[outcome].border,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
                 },
-              }
-            },
-            x: {
-              grid: {
-                drawBorder: false,
-                display: false,
-                drawOnChartArea: false,
-                drawTicks: false,
-                borderDash: [5, 5]
-              },
-              ticks: {
-                display: true,
-                color: '#9ca2b7',
-                padding: 10,
-                font: {
-                  size: 14,
-                  weight: 300,
-                  family: "Roboto",
-                  style: 'normal',
-                  lineHeight: 2
-                },
-              }
-            },
-          },
-        },
-      });
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#fff'  // Make legend text white
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                drawBorder: false,
+                                display: true,
+                                drawOnChartArea: true,
+                                drawTicks: false,
+                                borderDash: [5, 5],
+                                color: 'rgba(255,255,255,0.1)'  // Make grid lines lighter
+                            },
+                            ticks: {
+                                color: '#fff'  // Make y-axis labels white
+                            }
+                        },
+                        x: {
+                            grid: {
+                                drawBorder: false,
+                                display: false,
+                                drawOnChartArea: false,
+                                drawTicks: false
+                            },
+                            ticks: {
+                                color: '#fff'  // Make x-axis labels white
+                            }
+                        }
+                    }
+                }
+            });
+        }
     });
   </script>
   <script>
@@ -863,6 +605,31 @@ $treatmentDataJSON = json_encode($treatmentData);
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <!-- Control Center for Material Dashboard: parallax effects, scripts for the example pages etc -->
   <script src="../assets/js/material-dashboard.min.js?v=3.1.0"></script>
+  <!-- Add this CSS to style the chart containers -->
+  <style>
+  .chart {
+      background: linear-gradient(195deg, #42424a 0%, #191919 100%);
+      border-radius: 6px;
+      padding: 10px;
+  }
+  </style>
+  <script>
+  function filterByMunicipality(municipalityId, municipalityName) {
+      // Create a form and submit it
+      const form = document.createElement('form');
+      form.method = 'GET';
+      form.action = 'dashboard.php';
+
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'municipality';
+      input.value = municipalityId;
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+  }
+  </script>
 </body>
 
 </html>
