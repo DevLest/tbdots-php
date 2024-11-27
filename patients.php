@@ -104,6 +104,64 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     if($editUser) {
         logActivity($conn, $_SESSION['user_id'], 'UPDATE', 'patients', $id, "Updated patient: $fullname");
     }
+  } else {
+    if ($fullname && $dob && $location) {
+      // Only check for duplicates if we have name, location, and birthday
+      $stmt = $conn->prepare("SELECT id FROM patients WHERE fullname = ? AND dob = ? AND location_id = ?");
+      $stmt->bind_param('ssi', $fullname, $dob, $location);
+      $stmt->execute();
+      $result = $stmt->get_result();
+      $existingPatient = $result->fetch_assoc();
+
+      if ($existingPatient && (!isset($_POST['id']) || $_POST['id'] != $existingPatient['id'])) {
+        echo "<div class='alert alert-danger'>A patient with the same name, birthday, and location already exists.</div>";
+        exit; // Stop processing if duplicate found
+      }
+    }
+
+    $sql = "INSERT INTO patients (
+              fullname, 
+              age, 
+              gender, 
+              contact, 
+              address, 
+              physician_id, 
+              location_id,
+              height,
+              dob,
+              occupation,
+              phil_health_no,
+              contact_person,
+              contact_person_no
+            ) VALUES (
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param(
+      "siissiiisssss",
+      $fullname,
+      $age,
+      $gender,
+      $contact,
+      $address,
+      $physician,
+      $location,
+      $height,
+      $dob,
+      $occupation,
+      $phil_health_no,
+      $contact_person,
+      $contact_person_no
+    );
+
+    if($stmt->execute()) {
+      $newPatientId = $conn->insert_id;
+      logActivity($conn, $_SESSION['user_id'], 'CREATE', 'patients', $newPatientId, "Added patient: $fullname");
+      echo "<div class='alert alert-success'>Patient added successfully.</div>";
+    } else {
+      echo "<div class='alert alert-danger'>Error adding patient: " . $conn->error . "</div>";
+    }
   }
 
   if (isset($_POST["delete_id"]) && !empty(trim($_POST["delete_id"]))) {
@@ -140,29 +198,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 $delete_id,
                 "Deleted patient: " . $patient['fullname']
             );
-        }
-    }
-  }
-
-  if ($fullname && $dob && $location) {
-    // Check if the patient already exists
-    $stmt = $conn->prepare("SELECT id FROM patients WHERE fullname = ? AND dob = ? AND location_id = ?");
-    $stmt->bind_param('ssi', $fullname, $dob, $location);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $existingPatient = $result->fetch_assoc();
-
-    if ($existingPatient && (!isset($_POST['id']) || $_POST['id'] != $existingPatient['id'])) {
-        // Patient exists and this is either a new entry or editing a different patient
-        echo "<div class='alert alert-danger'>A patient with the same name, birthday, and location already exists.</div>";
-    } else {
-        // Proceed with insert/update
-        if(isset($_POST["id"]) && !empty(trim($_POST["id"]))) {
-            // Existing update code for editing patient
-            // ... (keep existing update logic)
-        } else {
-            // Existing insert code for new patient
-            // ... (keep existing insert logic)
         }
     }
   }
@@ -926,9 +961,12 @@ $physicians = $conn->query($physicianssql);
           const fullname = document.getElementById('fullname').value;
           const dob = document.getElementById('dob').value;
           const location = document.getElementById('location').value;
-          const id = document.getElementById('id').value; // For edit mode
+          const id = document.getElementById('id').value;
 
-          if (!fullname || !dob || !location) return true; // Allow form submission if any field is empty
+          // Only check for duplicates if all three fields are filled
+          if (!fullname || !location || !dob) {
+              return true; // Allow form submission if any required field is empty
+          }
 
           const formData = new FormData();
           formData.append('check_duplicate', '1');
@@ -943,21 +981,34 @@ $physicians = $conn->query($physicianssql);
                   body: formData
               });
               const data = await response.json();
-              return !data.exists; // Return true if patient doesn't exist
+              if (data.exists) {
+                  alert('A patient with the same name, birthday, and location already exists.');
+                  return false;
+              }
+              return true;
           } catch (error) {
               console.error('Error checking duplicate:', error);
               return true; // Allow form submission on error
           }
       }
 
-      // Update the form submission handler
+      // Form submission handler
       document.querySelector('form[role="form"]').addEventListener('submit', async function(e) {
           e.preventDefault();
           
-          const isValid = await checkDuplicatePatient();
-          if (!isValid) {
-              alert('A patient with the same name, birthday, and location already exists.');
+          // Basic validation for required fields
+          const fullname = document.getElementById('fullname').value;
+          const location = document.getElementById('location').value;
+          
+          if (!fullname || !location) {
+              alert('Please fill in all required fields (Name and Location).');
               return;
+          }
+          
+          // Only check for duplicates if we have a birthday
+          if (document.getElementById('dob').value) {
+              const isValid = await checkDuplicatePatient();
+              if (!isValid) return;
           }
           
           this.submit();
