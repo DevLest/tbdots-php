@@ -216,10 +216,28 @@ $locations = $conn->query($locationsQuery);
 $selectedLocation = isset($_GET['location']) ? (int)$_GET['location'] : 0;
 $searchName = isset($_GET['search']) ? trim($_GET['search']) : '';
 
+// Get selected filters from URL parameters
+$selectedMunicipality = isset($_GET['municipality']) ? (int)$_GET['municipality'] : 0;
+$selectedBarangay = isset($_GET['barangay']) ? (int)$_GET['barangay'] : 0;
+$selectedAge = isset($_GET['age']) ? (int)$_GET['age'] : 0;
+$selectedGender = isset($_GET['gender']) ? (int)$_GET['gender'] : 0;
+
 // Build the WHERE clause
 $whereConditions = [];
 if ($selectedLocation > 0) {
     $whereConditions[] = "p.location_id = $selectedLocation";
+}
+if ($selectedMunicipality > 0) {
+    $whereConditions[] = "m.id = $selectedMunicipality";
+}
+if ($selectedBarangay > 0) {
+    $whereConditions[] = "b.id = $selectedBarangay";
+}
+if ($selectedAge > 0) {
+    $whereConditions[] = "p.age = $selectedAge";
+}
+if ($selectedGender > 0) {
+    $whereConditions[] = "p.gender = $selectedGender";
 }
 if (!empty($searchName)) {
     $whereConditions[] = "p.fullname LIKE '%" . $conn->real_escape_string($searchName) . "%'";
@@ -501,6 +519,128 @@ $physicians = $conn->query($physicianssql);
   .treatment-card p {
     margin-bottom: 10px;
   }
+
+  /* Existing styles remain the same */
+  .form-select, .form-control, .btn-light, .btn-outline-light {
+    border: 1px solid #ced4da;
+    background-color: #fff;
+    color: #333;
+  }
+
+  .form-select:focus, .form-control:focus, .btn-light:focus, .btn-outline-light:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+
+  .btn-light {
+    background-color: #f8f9fa;
+    color: #333;
+  }
+
+  .btn-outline-light {
+    border-color: #f8f9fa;
+    color: #333;
+  }
+
+  .btn-outline-light:hover {
+    background-color: #e2e6ea;
+    color: #333;
+  }
+
+  .card-header {
+    background-color: #E91E63;
+    color: #fff;
+  }
+
+  .text-white {
+    color: #fff !important;
+  }
+
+  /* New responsive styles */
+  @media (max-width: 1200px) {
+    .form-select, .form-control {
+      min-width: 150px !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .d-flex.gap-2.flex-nowrap {
+      flex-wrap: wrap !important;
+      justify-content: flex-start;
+    }
+    
+    .form-select, .form-control {
+      min-width: 100% !important;
+    }
+    
+    .btn {
+      flex: 1;
+      min-width: auto !important;
+    }
+  }
+
+  /* Ensure consistent height for all form elements */
+  .form-select, .form-control, .btn {
+    height: 38px;
+    padding: 0.375rem 0.75rem;
+  }
+
+  /* Prevent button text from wrapping */
+  .btn {
+    white-space: nowrap;
+  }
+
+  /* Updated responsive styles */
+  @media (max-width: 1400px) {
+    .d-flex.gap-2 {
+      flex-wrap: wrap;
+    }
+    
+    .form-select {
+      flex: 0 0 auto;
+    }
+    
+    .form-control {
+      flex: 1 1 200px;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .d-flex.gap-2 > div {
+      width: 100%;
+    }
+    
+    .form-select, .form-control {
+      width: auto;
+      flex: 1;
+    }
+    
+    .d-flex.gap-2 .btn {
+      flex: 1;
+    }
+  }
+
+  /* Improved spacing */
+  .gap-2 {
+    gap: 0.75rem !important;
+  }
+
+  /* Card header styling */
+  .card-header {
+    background-color: #E91E63;
+    color: #fff;
+    padding: 1rem;
+  }
+
+  /* Form elements hover/focus states */
+  .form-select:hover, .form-control:hover {
+    border-color: #adb5bd;
+  }
+
+  .form-select:focus, .form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
 </style>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -519,27 +659,52 @@ $physicians = $conn->query($physicianssql);
               <div>
                 <h6 class="text-white mb-0">Patient List</h6>
               </div>
-              <form method="GET" class="d-flex align-items-center gap-3">
-                <select name="location" class="form-select" style="width: 200px; background-color: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3);">
-                  <option value="0">All Locations</option>
-                  <?php 
-                  $locations->data_seek(0); // Reset the locations result pointer
-                  while($loc = $locations->fetch_assoc()): 
-                  ?>
-                    <option value="<?php echo $loc['id']; ?>" <?php echo $selectedLocation == $loc['id'] ? 'selected' : ''; ?>>
-                      <?php echo htmlspecialchars($loc['municipality'] . ' - ' . $loc['barangay']); ?>
-                    </option>
-                  <?php endwhile; ?>
-                </select>
-                <input type="text" name="search" class="form-control" placeholder="Search by name..." 
-                  value="<?php echo htmlspecialchars($searchName); ?>"
-                  style="width: 300px; background-color: white; border: none;">
-                <button type="submit" class="btn btn-light">FILTER</button>
-                <a href="patients.php" class="btn btn-outline-light">RESET</a>
-                <button type="button" class="btn btn-light d-flex align-items-center gap-2" onclick="openAddModal()">
-                  <i class="fas fa-plus"></i>
-                  <span>PATIENT</span>
-                </button>
+              <form method="GET" class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="d-flex gap-2" style="flex: 1;">
+                    <div class="d-flex flex-wrap gap-2 align-items-center" style="flex: 1;">
+                        <select name="municipality" class="form-select" style="min-width: 180px; max-width: 200px;">
+                            <option value="0">All Municipalities</option>
+                            <?php 
+                            $municipalities = $conn->query("SELECT id, location FROM municipalities");
+                            while($municipality = $municipalities->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $municipality['id']; ?>" <?php echo $selectedMunicipality == $municipality['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($municipality['location']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                        
+                        <select name="barangay" class="form-select" style="min-width: 180px; max-width: 200px;">
+                            <option value="0">All Barangays</option>
+                            <?php 
+                            $barangays = $conn->query("SELECT id, name FROM barangays");
+                            while($barangay = $barangays->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $barangay['id']; ?>" <?php echo $selectedBarangay == $barangay['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($barangay['name']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                        
+                        <select name="gender" class="form-select" style="min-width: 140px; max-width: 160px;">
+                            <option value="0">All Genders</option>
+                            <option value="1" <?php echo $selectedGender == 1 ? 'selected' : ''; ?>>Male</option>
+                            <option value="2" <?php echo $selectedGender == 2 ? 'selected' : ''; ?>>Female</option>
+                        </select>
+                        
+                        <input type="text" name="search" class="form-control" placeholder="Search by name..." 
+                               value="<?php echo htmlspecialchars($searchName); ?>" style="min-width: 200px; flex: 1;">
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center">
+                        <button type="submit" class="btn btn-light">FILTER</button>
+                        <!-- <a href="patients.php" class="btn btn-outline-light">RESET</a> -->
+                        <button type="button" class="btn btn-light d-flex align-items-center gap-2" onclick="openAddModal()">
+                            <i class="fas fa-plus"></i>
+                            <span>PATIENT</span>
+                        </button>
+                    </div>
+                </div>
               </form>
             </div>
             <div class="card-body px-0 pb-2">

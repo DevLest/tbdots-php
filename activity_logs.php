@@ -8,36 +8,13 @@ if(!isset($_SESSION['user_id'])) {
 require_once "connection/db.php";
 include_once('head.php');
 
-$action_filter = $_GET['action'] ?? '';
-$table_filter = $_GET['table'] ?? 'all';
-$date_filter = $_GET['date'] ?? '';
-$search = $_GET['search'] ?? '';
-
-// Build the query
+// Simplified query without filters
 $query = "
     SELECT al.*, u.first_name, u.last_name 
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.id
-    WHERE 1=1
+    ORDER BY al.created_at DESC
 ";
-
-// Add filters
-if ($action_filter) {
-    $query .= " AND al.action = '" . $conn->real_escape_string($action_filter) . "'";
-}
-if ($table_filter) {
-    $query .= " AND al.table_name = '" . $conn->real_escape_string($table_filter) . "'";
-}
-if ($date_filter) {
-    $query .= " AND DATE(al.created_at) = '" . $conn->real_escape_string($date_filter) . "'";
-}
-if ($search) {
-    $query .= " AND (al.details LIKE '%" . $conn->real_escape_string($search) . "%'
-                OR u.first_name LIKE '%" . $conn->real_escape_string($search) . "%'
-                OR u.last_name LIKE '%" . $conn->real_escape_string($search) . "%')";
-}
-
-$query .= " ORDER BY al.created_at DESC";
 $result = $conn->query($query);
 
 // Get unique table names for tabs
@@ -66,47 +43,6 @@ while ($table = $tables_result->fetch_assoc()) {
             
             <!-- Filters -->
             <div class="card-body px-3 pb-2">
-              <!-- Tabs Navigation -->
-              <ul class="nav nav-tabs mb-3" id="activityTabs" role="tablist">
-                  <li class="nav-item" role="presentation">
-                      <a class="nav-link <?= $table_filter === 'all' ? 'active' : '' ?>" 
-                         href="?table=all<?= $action_filter ? '&action='.$action_filter : '' ?><?= $date_filter ? '&date='.$date_filter : '' ?><?= $search ? '&search='.$search : '' ?>">
-                          All Tables
-                      </a>
-                  </li>
-                  <?php foreach ($available_tables as $table): ?>
-                  <li class="nav-item" role="presentation">
-                      <a class="nav-link <?= $table_filter === $table ? 'active' : '' ?>" 
-                         href="?table=<?= urlencode($table) ?><?= $action_filter ? '&action='.$action_filter : '' ?><?= $date_filter ? '&date='.$date_filter : '' ?><?= $search ? '&search='.$search : '' ?>">
-                          <?= ucfirst($table) ?>
-                      </a>
-                  </li>
-                  <?php endforeach; ?>
-              </ul>
-
-              <!-- Filters (modified) -->
-              <form method="GET" class="row mb-3">
-                  <input type="hidden" name="table" value="<?= htmlspecialchars($table_filter) ?>">
-                  <div class="col-md-4">
-                      <select name="action" class="form-control">
-                          <option value="">All Actions</option>
-                          <option value="CREATE" <?= $action_filter == 'CREATE' ? 'selected' : '' ?>>Create</option>
-                          <option value="UPDATE" <?= $action_filter == 'UPDATE' ? 'selected' : '' ?>>Update</option>
-                          <option value="DELETE" <?= $action_filter == 'DELETE' ? 'selected' : '' ?>>Delete</option>
-                      </select>
-                  </div>
-                  <div class="col-md-4">
-                      <input type="date" name="date" class="form-control" value="<?= $date_filter ?>">
-                  </div>
-                  <div class="col-md-4">
-                      <input type="text" name="search" class="form-control" placeholder="Search..." value="<?= $search ?>">
-                  </div>
-                  <div class="col-md-12 mt-2">
-                      <button type="submit" class="btn btn-primary">Filter</button>
-                      <a href="activity_logs.php" class="btn btn-secondary">Reset</a>
-                  </div>
-              </form>
-
               <div class="table-responsive">
                 <table class="table align-items-center mb-0">
                   <thead>

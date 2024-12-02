@@ -30,13 +30,11 @@ $locations = $conn->query($locationsQuery);
 
 // Get selected filters from URL parameters
 $selectedMunicipality = isset($_GET['municipality']) ? (int)$_GET['municipality'] : 0;
-$selectedBarangay = isset($_GET['barangay']) ? (int)$_GET['barangay'] : 0;
 $selectedAgeRange = isset($_GET['age_range']) ? $_GET['age_range'] : '';
 $selectedGender = isset($_GET['gender']) ? $_GET['gender'] : '';
 
 // Build filter conditions
 $municipalityCondition = $selectedMunicipality > 0 ? "AND m.id = $selectedMunicipality" : "";
-$barangayCondition = $selectedBarangay > 0 ? "AND b.id = $selectedBarangay" : "";
 $genderCondition = $selectedGender ? "AND p.gender = '$selectedGender'" : "";
 
 // Age range condition
@@ -59,7 +57,7 @@ if ($selectedAgeRange) {
 }
 
 // Combine all conditions
-$filterConditions = "$municipalityCondition $barangayCondition $genderCondition $ageCondition";
+$filterConditions = "$municipalityCondition $genderCondition $ageCondition";
 
 // Get statistics for the cards
 $thisWeekPatients = $conn->query("
@@ -353,25 +351,6 @@ $gradients = [
                     </select>
                 </div>
                 
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Barangay</label>
-                    <select name="barangay" class="form-select" id="barangaySelect">
-                        <option value="0">All Barangays</option>
-                        <?php if ($selectedMunicipality > 0): 
-                            $barangaysQuery = "SELECT b.id, b.name FROM barangays b 
-                                         JOIN locations l ON l.barangay_id = b.id 
-                                         WHERE l.municipality_id = $selectedMunicipality 
-                                         ORDER BY b.name";
-                            $barangays = $conn->query($barangaysQuery);
-                            while($bar = $barangays->fetch_assoc()): 
-                        ?>
-                            <option value="<?php echo $bar['id']; ?>" <?php echo $selectedBarangay == $bar['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($bar['name']); ?>
-                            </option>
-                        <?php endwhile; endif; ?>
-                    </select>
-                </div>
-
                 <div class="col-md-2 mb-3">
                     <label class="form-label">Age Range</label>
                     <select name="age_range" class="form-select">
