@@ -641,6 +641,88 @@ $physicians = $conn->query($physicianssql);
     border-color: #86b7fe;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
   }
+
+  .patient-details {
+    padding: 20px;
+  }
+
+  .details-section {
+    margin-bottom: 30px;
+  }
+
+  .section-title {
+    color: #344767;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #E91E63;
+  }
+
+  .details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+  }
+
+  .detail-item {
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .detail-item label {
+    display: block;
+    color: #7b809a;
+    font-size: 0.875rem;
+    margin-bottom: 4px;
+  }
+
+  .detail-item span {
+    color: #344767;
+    font-weight: 500;
+    font-size: 1rem;
+  }
+
+  #patientDetailsModal .modal-dialog {
+    max-width: 800px;
+  }
+
+  #patientDetailsModal .modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  }
+
+  #patientDetailsModal .modal-header {
+    background-color: #E91E63;
+    color: white;
+    border-radius: 15px 15px 0 0;
+  }
+
+  #patientDetailsModal .modal-title {
+    font-weight: 600;
+  }
+
+  #patientDetailsModal .btn-close {
+    color: white;
+  }
+
+  #patientDetailsModal .modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding: 1rem;
+  }
+
+  #patientDetailsModal .btn-secondary {
+    background-color: #6c757d;
+    border: none;
+    padding: 8px 20px;
+    font-weight: 500;
+  }
+
+  #patientDetailsModal .btn-secondary:hover {
+    background-color: #5a6268;
+  }
 </style>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -740,8 +822,15 @@ $physicians = $conn->query($physicianssql);
                           }
                           // Output data of each row
                           while($row = $patientsData->fetch_assoc()) {
+                            // Check if lab results exist for the patient
+                            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM lab_results WHERE patient_id = ?");
+                            $stmt->bind_param('i', $row["id"]);
+                            $stmt->execute();
+                            $result = $stmt->get_result();
+                            $labResults = $result->fetch_assoc();
+
                             echo "
-                              <tr onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' style='cursor: pointer;'>
+                              <tr>
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["fullname"]."</span></td>
                                 <td class='text-center'>
                                     <span class='text-secondary text-xs font-weight-bold'>".$address."</span>
@@ -749,7 +838,14 @@ $physicians = $conn->query($physicianssql);
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".($row["gender"] == 1 ? "Male" : "Female")."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["age"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
-                                <td class='align-middle' onclick='event.stopPropagation()'>
+                                <td class='align-middle'>
+                                  <button onclick='showPatientDetails(".$row["id"].")' class='btn btn-link text-secondary mb-0'>
+                                    <i class='fa fa-user text-xs'></i> Details
+                                  </button>
+                                  " . ($labResults['count'] > 0 ? "
+                                  <button onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
+                                    <i class='fa fa-flask text-xs'></i> Lab Results
+                                  </button>" : "") . "
                                   " . (in_array(11, $_SESSION['module']) ? "
                                     <button onclick='editPatient(".$row["id"].", ".json_encode($row).")' class='btn btn-link text-secondary mb-0'>
                                       <i class='fa fa-edit text-xs'></i> Edit
@@ -902,6 +998,24 @@ $physicians = $conn->query($physicianssql);
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient Details Modal -->
+    <div class='modal fade' id='patientDetailsModal' tabindex='-1' aria-labelledby='patientDetailsModalLabel' aria-hidden='true'>
+      <div class='modal-dialog'>
+        <div class='modal-content'>
+          <div class='modal-header'>
+            <h5 class='modal-title' id='patientDetailsModalLabel'>Patient Details</h5>
+            <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+          </div>
+          <div class='modal-body' id='patientDetailsContent'>
+            <!-- Content will be loaded dynamically -->
+          </div>
+          <div class='modal-footer'>
+            <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
           </div>
         </div>
       </div>
@@ -1178,6 +1292,92 @@ $physicians = $conn->query($physicianssql);
           
           this.submit();
       });
+
+      function showPatientDetails(patientId) {
+        fetch(`get_patient_details.php?id=${patientId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              const patient = data.data;
+              const content = `
+                <div class="patient-details">
+                  <div class="details-section">
+                    <h6 class="section-title">Personal Information</h6>
+                    <div class="details-grid">
+                      <div class="detail-item">
+                        <label>Name:</label>
+                        <span>${patient.fullname}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Age:</label>
+                        <span>${patient.age}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Gender:</label>
+                        <span>${patient.gender == 1 ? 'Male' : 'Female'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Date of Birth:</label>
+                        <span>${patient.dob || 'N/A'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Height:</label>
+                        <span>${patient.height ? patient.height + ' cm' : 'N/A'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Occupation:</label>
+                        <span>${patient.occupation || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="details-section">
+                    <h6 class="section-title">Contact Information</h6>
+                    <div class="details-grid">
+                      <div class="detail-item">
+                        <label>Contact Number:</label>
+                        <span>${patient.contact || 'N/A'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Address:</label>
+                        <span>${patient.address || 'N/A'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>PhilHealth Number:</label>
+                        <span>${patient.phil_health_no || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="details-section">
+                    <h6 class="section-title">Emergency Contact</h6>
+                    <div class="details-grid">
+                      <div class="detail-item">
+                        <label>Contact Person:</label>
+                        <span>${patient.contact_person || 'N/A'}</span>
+                      </div>
+                      <div class="detail-item">
+                        <label>Contact Number:</label>
+                        <span>${patient.contact_person_no || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+              document.getElementById('patientDetailsContent').innerHTML = content;
+              const modal = new bootstrap.Modal(document.getElementById('patientDetailsModal'));
+              modal.show();
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('patientDetailsContent').innerHTML = `
+              <div class='alert alert-danger'>
+                Error loading patient details: ${error.message}
+              </div>
+            `;
+          });
+      }
     </script>
 
     <?php include_once('footer.php'); ?>
