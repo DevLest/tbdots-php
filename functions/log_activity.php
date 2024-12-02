@@ -2,7 +2,7 @@
 
 function logActivity($conn, $userId, $action, $tableName, $recordId, $details) {
     // Ensure the action is one of the allowed ENUM values
-    $allowedActions = ['CREATE', 'UPDATE', 'DELETE'];
+    $allowedActions = ['CREATE', 'UPDATE', 'DELETE', 'INSERT'];
     if (!in_array($action, $allowedActions)) {
         throw new Exception("Invalid action: $action");
     }

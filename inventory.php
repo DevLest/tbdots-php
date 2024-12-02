@@ -39,6 +39,8 @@ function generateBatchNumber($conn) {
     return $date . '-' . str_pad($sequence, 3, '0', STR_PAD_LEFT);
 }
 
+
+
 // Handle POST requests
 if($_SERVER["REQUEST_METHOD"] == "POST") {
     // Add/Edit Product
@@ -85,7 +87,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Add Inventory (separate from product creation)
     if(isset($_POST['action']) && $_POST['action'] == 'inventory') {
-        try {
+        // try {
             $product_id = trim($_POST['product_id']);
             $quantity = trim($_POST['quantity']);
             $expiration_date = trim($_POST['expiration_date']);
@@ -100,11 +102,13 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 logActivity($conn, $_SESSION['user_id'], 'INSERT', 'inventory', $stmt->insert_id, 
                            "Added inventory for product ID: $product_id");
                 $_SESSION['success_message'] = "Inventory successfully added!";
+            } else {
+                throw new Exception("Failed to execute statement.");
             }
-        } catch (Exception $e) {
-            error_log("Error in inventory operation: " . $e->getMessage());
-            $_SESSION['error_message'] = "Error adding inventory. Please try again.";
-        }
+        // } catch (Exception $e) {
+        //     error_log("Error in inventory operation: " . $e->getMessage());
+        //     $_SESSION['error_message'] = "Error adding inventory. Please try again.";
+        // }
     }
 
     // Delete Product
