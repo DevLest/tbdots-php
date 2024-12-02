@@ -80,7 +80,24 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   }
 }
 
-$sql = "SELECT users.id, username, first_name, last_name, password, roles.module, roles.description, roles.id as role_id, users.created_at FROM users INNER JOIN roles ON users.role = roles.id WHERE users.role = 3 ORDER BY users.created_at DESC";
+$sql = "SELECT DISTINCT 
+    u.id, 
+    u.username, 
+    u.first_name, 
+    u.last_name, 
+    u.password, 
+    r.module, 
+    r.description, 
+    r.id as role_id, 
+    u.created_at,
+    COUNT(DISTINCT p.id) as patient_count 
+FROM users u
+INNER JOIN roles r ON u.role = r.id 
+LEFT JOIN patients p ON u.id = p.physician_id
+LEFT JOIN lab_results lr ON p.id = lr.patient_id AND lr.physician_id = u.id
+WHERE u.role = 3 
+GROUP BY u.id
+ORDER BY u.created_at DESC";
 $users = $conn->query($sql);
 ?>
 
@@ -114,6 +131,7 @@ $users = $conn->query($sql);
                     <tr>
                       <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Username</th>
                       <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Full name</th>
+                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Patients</th>
                       <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Added Date</th>
                       <th class="text-secondary opacity-7"></th>
                     </tr>
@@ -127,6 +145,11 @@ $users = $conn->query($sql);
                               <tr>
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["username"]."</span></td>
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["first_name"]. " ".$row["last_name"]."</span></td>
+                                <td>
+                                    <button type='button' class='btn btn-link text-secondary mb-0' onclick='viewPatients(".$row["id"].")'>
+                                        <span class='text-secondary text-xs font-weight-bold'>".$row["patient_count"]." patients</span>
+                                    </button>
+                                </td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
                                 <td class='align-middle'>";
                             echo in_array(7, $_SESSION['module']) ? "
@@ -199,6 +222,34 @@ $users = $conn->query($sql);
         </div>
       </div>
     </div>
+    <div class="modal fade" id="viewPatientsModal" tabindex="-1" aria-labelledby="viewPatientsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="viewPatientsModalLabel">Physician's Patients</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Patient Name</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Age</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Contact</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Address</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Treatment Outcome</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Latest Lab Result</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientsList">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
   </main>
   <script src="../assets/js/core/popper.min.js"></script>
   <script src="../assets/js/core/bootstrap.min.js"></script>
@@ -230,6 +281,30 @@ $users = $conn->query($sql);
         damping: '0.5'
       }
       Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+
+    function viewPatients(physicianId) {
+        fetch(`get_physician_patients.php?physician_id=${physicianId}`)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('patientsList');
+                tbody.innerHTML = '';
+                
+                data.forEach(patient => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${patient.fullname}</td>
+                            <td>${patient.age}</td>
+                            <td>${patient.contact || 'N/A'}</td>
+                            <td>${patient.address || 'N/A'}</td>
+                            <td>${patient.treatment_outcome || 'No outcome'}</td>
+                            <td>${patient.latest_lab_result || 'No results'}</td>
+                        </tr>
+                    `;
+                });
+                
+                new bootstrap.Modal(document.getElementById('viewPatientsModal')).show();
+            });
     }
   </script>
 </body>
