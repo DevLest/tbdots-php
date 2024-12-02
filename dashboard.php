@@ -216,9 +216,9 @@ $healedPatients = $result->fetch_all(MYSQLI_ASSOC);
 $healedLabels = [];
 $healedData = [];
 
-// Get last 9 months
+// Get last 12 months instead of 9
 $months = [];
-for ($i = 8; $i >= 0; $i--) {
+for ($i = 11; $i >= 0; $i--) {  // Changed from 8 to 11
     $monthDate = date('Y-m', strtotime("-$i months"));
     $monthLabel = date('M', strtotime("-$i months"));
     $months[$monthDate] = [
@@ -238,19 +238,28 @@ foreach ($healedPatients as $record) {
 $healedLabels = json_encode(array_column($months, 'label'));
 $healedData = json_encode(array_column($months, 'count'));
 
-// Modify the treatment outcomes query
+// Modify the treatment outcomes query to get 12 months and most recent cases
 $treatmentOutcomesQuery = "
     SELECT 
         l.treatment_outcome,
         DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
         DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
         COUNT(*) as count
-    FROM lab_results l
+    FROM (
+        SELECT 
+            patient_id,
+            treatment_outcome,
+            treatment_outcome_date,
+            ROW_NUMBER() OVER (PARTITION BY patient_id ORDER BY case_number DESC) as rn
+        FROM lab_results
+        WHERE treatment_outcome IS NOT NULL
+    ) l
     JOIN patients p ON l.patient_id = p.id
     JOIN locations loc ON p.location_id = loc.id
     JOIN municipalities m ON loc.municipality_id = m.id
     JOIN barangays b ON loc.barangay_id = b.id
-    WHERE l.treatment_outcome IS NOT NULL
+    WHERE l.rn = 1  -- Only get the most recent case for each patient
+    AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
     $filterConditions
     GROUP BY 
         l.treatment_outcome, 
@@ -275,7 +284,6 @@ while ($row = $treatmentResults->fetch_assoc()) {
         $treatmentData[$row['treatment_outcome']][$row['month']] = (int)$row['count'];
     }
 }
-
 // Convert to JSON for JavaScript
 $monthLabels = json_encode(array_column($months, 'label'));
 $treatmentDataJSON = json_encode($treatmentData);
@@ -556,6 +564,7 @@ $gradients = [
     // Initialize charts for each treatment outcome
     const treatmentData = <?php echo $treatmentDataJSON; ?>;
     const monthLabels = <?php echo $monthLabels; ?>;
+    console.log(treatmentData);
     const chartColors = {
         'CURED': {
             border: 'rgba(52, 152, 219, 1)',  // Soft blue
