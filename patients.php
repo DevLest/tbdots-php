@@ -497,14 +497,19 @@ $physicians = $conn->query($physicianssql);
   }
 
   .alert {
-    position: relative;
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 1050;
-    margin-top: 20px;
+    width: auto;
+    max-width: 90%;
+    margin: 0 auto;
     padding: 15px;
     border-radius: 5px;
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
   }
 
   .treatment-card {

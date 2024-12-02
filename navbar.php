@@ -4,9 +4,19 @@
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
             <li class="breadcrumb-item text-sm"><a class="opacity-5 text-dark" href="javascript:;">Pages</a></li>
-            <li class="breadcrumb-item text-sm text-dark active" aria-current="page"><?php echo ucwords(str_replace('_', ' ', str_replace('.php', '', $current_page))) ?></li>
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">
+              <?php 
+              $page_name = explode('?', $current_page)[0];
+              echo ucwords(str_replace('_', ' ', str_replace('.php', '', $page_name)));
+              ?>
+            </li>
           </ol>
-          <h6 class="font-weight-bolder mb-0"><?php echo ucwords(str_replace('_', ' ', str_replace('.php', '', $current_page))) ?></h6>
+          <h6 class="font-weight-bolder mb-0">
+            <?php 
+            $page_name = explode('?', $current_page)[0];
+            echo ucwords(str_replace('_', ' ', str_replace('.php', '', $page_name)));
+            ?>
+          </h6>
         </nav>
         <div class="collapse navbar-collapse mt-sm-0 mt-2 me-md-0 me-sm-4" id="navbar">
           <div class="ms-md-auto pe-md-3 d-flex align-items-center">

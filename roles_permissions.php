@@ -31,8 +31,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['role_id'])) {
     }
 }
 
-// Get all roles
-$roles = $conn->query("SELECT * FROM roles ORDER BY id");
+// Get all roles (excluding super admin with ID 1)
+$roles = $conn->query("SELECT * FROM roles WHERE id != 1 ORDER BY id");
 
 // Get all modules
 $modules = $conn->query("SELECT * FROM modules ORDER BY id");
