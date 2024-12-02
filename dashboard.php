@@ -251,7 +251,6 @@ $treatmentOutcomesQuery = "
     JOIN municipalities m ON loc.municipality_id = m.id
     JOIN barangays b ON loc.barangay_id = b.id
     WHERE l.treatment_outcome IS NOT NULL
-    AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 9 MONTH)
     $filterConditions
     GROUP BY 
         l.treatment_outcome, 
