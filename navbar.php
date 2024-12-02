@@ -99,7 +99,7 @@
                 <i class="fa fa-user me-sm-1"></i>
               </a>
               <ul class="dropdown-menu  dropdown-menu-end  px-2 py-3 me-sm-n4" aria-labelledby="dropdownMenuButton">
-                <li>
+                <!-- <li>
                   <a class="dropdown-item border-radius-md" href="profile.php">
                     <div class="d-flex py-1">
                       <div class="avatar avatar-sm bg-gradient-secondary  me-3  my-auto">
@@ -124,7 +124,7 @@
                       </div>
                     </div>
                   </a>
-                </li>
+                </li> -->
                 <li>
                   <a class="dropdown-item border-radius-md" href="logout.php">
                     <div class="d-flex py-1">

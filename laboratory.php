@@ -12,19 +12,25 @@ include_once('head.php');
 
 // Consolidate all queries at the top
 $patientsSqlList = "SELECT 
-                    t.id,
-                    t.case_number,
-                    p.fullname,
-                    p.gender,
-                    p.age,
-                    t.bacteriological_status,
-                    t.diagnosis,
-                    t.treatment_regimen,
-                    t.treatment_outcome,
-                    t.created_at
-                FROM lab_results  t
-                JOIN patients p ON t.patient_id = p.id
-                ORDER BY t.created_at DESC";
+                    t2.id,
+                    t2.case_number,
+                    p2.fullname,
+                    p2.gender,
+                    p2.age,
+                    t2.bacteriological_status,
+                    t2.diagnosis,
+                    t2.treatment_regimen,
+                    t2.treatment_outcome,
+                    t2.created_at
+                FROM lab_results t2
+                JOIN patients p2 ON t2.patient_id = p2.id
+                INNER JOIN (
+                    SELECT case_number, MAX(created_at) as max_date
+                    FROM lab_results
+                    GROUP BY case_number
+                ) t1 ON t2.case_number = t1.case_number 
+                    AND t2.created_at = t1.max_date
+                ORDER BY t2.created_at DESC";
 
 $patientListReturns = $conn->query($patientsSqlList);
 $allPatientsList = $patientListReturns->fetch_all(MYSQLI_ASSOC); // Store all results in array
