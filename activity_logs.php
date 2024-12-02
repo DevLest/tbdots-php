@@ -8,13 +8,54 @@ if(!isset($_SESSION['user_id'])) {
 require_once "connection/db.php";
 include_once('head.php');
 
-// Simplified query without filters
+$action_filter = $_GET['action'] ?? '';
+$table_filter = $_GET['table'] ?? 'all';
+$date_filter = $_GET['date'] ?? '';
+$search = $_GET['search'] ?? '';
+
+// Build the query with additional joins
 $query = "
-    SELECT al.*, u.first_name, u.last_name 
+    SELECT al.*, u.first_name, u.last_name,
+    -- For inventory logs
+    CASE 
+        WHEN al.table_name = 'inventory' THEN p.brand_name
+        -- For lab results logs
+        WHEN al.table_name = 'lab_results' THEN pat.fullname
+        -- For products logs
+        WHEN al.table_name = 'products' THEN p2.brand_name
+        ELSE NULL
+    END as related_name
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.id
-    ORDER BY al.created_at DESC
+    -- Join for inventory logs
+    LEFT JOIN inventory i ON (al.table_name = 'inventory' AND al.record_id = i.id)
+    LEFT JOIN products p ON i.product_id = p.id
+    -- Join for lab results logs
+    LEFT JOIN lab_results lr ON (al.table_name = 'lab_results' AND al.record_id = lr.id)
+    LEFT JOIN patients pat ON lr.patient_id = pat.id
+    -- Join for products logs
+    LEFT JOIN products p2 ON (al.table_name = 'products' AND al.record_id = p2.id)
+    WHERE 1=1
+    AND al.action != 'DELETE'
 ";
+
+// Add filters
+if ($action_filter) {
+    $query .= " AND al.action = '" . $conn->real_escape_string($action_filter) . "'";
+}
+if ($table_filter) {
+    $query .= " AND al.table_name = '" . $conn->real_escape_string($table_filter) . "'";
+}
+if ($date_filter) {
+    $query .= " AND DATE(al.created_at) = '" . $conn->real_escape_string($date_filter) . "'";
+}
+if ($search) {
+    $query .= " AND (al.details LIKE '%" . $conn->real_escape_string($search) . "%'
+                OR u.first_name LIKE '%" . $conn->real_escape_string($search) . "%'
+                OR u.last_name LIKE '%" . $conn->real_escape_string($search) . "%')";
+}
+
+$query .= " ORDER BY al.created_at DESC";
 $result = $conn->query($query);
 
 // Get unique table names for tabs
@@ -43,6 +84,47 @@ while ($table = $tables_result->fetch_assoc()) {
             
             <!-- Filters -->
             <div class="card-body px-3 pb-2">
+              <!-- Tabs Navigation -->
+              <ul class="nav nav-tabs mb-3" id="activityTabs" role="tablist">
+                  <!-- <li class="nav-item" role="presentation">
+                      <a class="nav-link <?= $table_filter === 'all' ? 'active' : '' ?>" 
+                         href="?table=all<?= $action_filter ? '&action='.$action_filter : '' ?><?= $date_filter ? '&date='.$date_filter : '' ?><?= $search ? '&search='.$search : '' ?>">
+                          All Tables
+                      </a>
+                  </li> -->
+                  <?php foreach ($available_tables as $table): ?>
+                  <li class="nav-item" role="presentation">
+                      <a class="nav-link <?= $table_filter === $table ? 'active' : '' ?>" 
+                         href="?table=<?= urlencode($table) ?><?= $action_filter ? '&action='.$action_filter : '' ?><?= $date_filter ? '&date='.$date_filter : '' ?><?= $search ? '&search='.$search : '' ?>">
+                          <?= ucfirst($table) ?>
+                      </a>
+                  </li>
+                  <?php endforeach; ?>
+              </ul>
+
+              <!-- Filters (modified) -->
+              <!-- <form method="GET" class="row mb-3">
+                  <input type="hidden" name="table" value="<?= htmlspecialchars($table_filter) ?>">
+                  <div class="col-md-4">
+                      <select name="action" class="form-control">
+                          <option value="">All Actions</option>
+                          <option value="CREATE" <?= $action_filter == 'CREATE' ? 'selected' : '' ?>>Create</option>
+                          <option value="UPDATE" <?= $action_filter == 'UPDATE' ? 'selected' : '' ?>>Update</option>
+                          <option value="DELETE" <?= $action_filter == 'DELETE' ? 'selected' : '' ?>>Delete</option>
+                      </select>
+                  </div>
+                  <div class="col-md-4">
+                      <input type="date" name="date" class="form-control" value="<?= $date_filter ?>">
+                  </div>
+                  <div class="col-md-4">
+                      <input type="text" name="search" class="form-control" placeholder="Search..." value="<?= $search ?>">
+                  </div>
+                  <div class="col-md-12 mt-2">
+                      <button type="submit" class="btn btn-primary">Filter</button>
+                      <a href="activity_logs.php" class="btn btn-secondary">Reset</a>
+                  </div>
+              </form> -->
+
               <div class="table-responsive">
                 <table class="table align-items-center mb-0">
                   <thead>
@@ -61,7 +143,12 @@ while ($table = $tables_result->fetch_assoc()) {
                         <td><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></td>
                         <td><?= $row['action'] ?></td>
                         <td><?= $row['table_name'] ?></td>
-                        <td><?= htmlspecialchars($row['details']) ?></td>
+                        <td>
+                          <?php if ($row['related_name']): ?>
+                            <?= htmlspecialchars($row['related_name']) ?> - 
+                          <?php endif; ?>
+                          <?= htmlspecialchars($row['details']) ?>
+                        </td>
                       </tr>
                     <?php endwhile; ?>
                   </tbody>
