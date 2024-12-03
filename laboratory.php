@@ -81,12 +81,18 @@ $physiciansSql = "SELECT * FROM users WHERE role = 3";
 $physicians = $conn->query($physiciansSql);
 
 // Add this query near the top with other queries
-$lastCaseNumberSql = "SELECT MAX(CAST(SUBSTRING(case_number, 5) AS UNSIGNED)) as last_number 
-                    FROM lab_results  
-                    WHERE case_number LIKE CONCAT(YEAR(CURRENT_DATE), '-%')";
-$lastCaseResult = $conn->query($lastCaseNumberSql);
-$lastNumber = $lastCaseResult->fetch_assoc()['last_number'] ?? 0;
-$newCaseNumber = date('Y') . '-' . ($lastNumber + 1);
+
+if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['mode']) && $_POST['mode'] == 'edit') {
+  $newCaseNumber = isset($_POST['case_number']) ? $_POST['case_number'] : date('Y') . '-' . 1;
+} else {
+  $lastCaseNumberSql = "SELECT id 
+                      FROM lab_results
+                      ORDER BY id DESC
+                      LIMIT 1";
+  $lastCaseResult = $conn->query($lastCaseNumberSql);
+  $lastNumber = $lastCaseResult->fetch_assoc()['id'] ?? 0;
+  $newCaseNumber = date('Y') . '-' . ($lastNumber + 1);
+}
 
 // Handle form submissions
 if($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -158,25 +164,32 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         error_log("Starting lab results insertion...");
         
         // Check if patient already has an existing lab record
-        $check_sql = "SELECT case_number FROM lab_results WHERE patient_id = ?";
-        $check_stmt = $conn->prepare($check_sql);
-        
-        if (!$check_stmt) {
-            $_SESSION['error'] = "Failed to prepare check statement: " . $conn->error;
-            throw new Exception("Failed to prepare check statement: " . $conn->error);
+        if ($_POST['mode'] !== 'edit') {
+            $check_sql = "SELECT case_number FROM lab_results WHERE patient_id = ?";
+            $check_stmt = $conn->prepare($check_sql);
+            
+            if (!$check_stmt) {
+                $_SESSION['error'] = "Failed to prepare check statement: " . $conn->error;
+                throw new Exception("Failed to prepare check statement: " . $conn->error);
+            }
+            
+            $check_stmt->bind_param("i", $_POST['patient_id']);
+            $check_stmt->execute();
+            $check_result = $check_stmt->get_result();
+            
+            if ($check_result->num_rows > 0) {
+                $existing_record = $check_result->fetch_assoc();
+                $_SESSION['error'] = "Patient already has an existing laboratory record with case number: " . $existing_record['case_number'];
+                throw new Exception("Patient already has an existing laboratory record with case number: " . $existing_record['case_number']);
+            }
+            
+            $check_stmt->close(); // Move this inside the if block
         }
-        
-        $check_stmt->bind_param("i", $_POST['patient_id']);
-        $check_stmt->execute();
-        $check_result = $check_stmt->get_result();
-        
-        if ($check_result->num_rows > 0) {
-            $existing_record = $check_result->fetch_assoc();
-            $_SESSION['error'] = "Patient already has an existing laboratory record with case number: " . $existing_record['case_number'];
-            throw new Exception("Patient already has an existing laboratory record with case number: " . $existing_record['case_number']);
+
+        // Ensure $check_stmt is defined before calling close()
+        if (isset($check_stmt)) {
+            $check_stmt->close();
         }
-        
-        $check_stmt->close();
 
         // Insert into lab_results table
         $sql = "INSERT INTO lab_results (
@@ -833,6 +846,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <form role="form" class="text-start" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
+            <input type="hidden" name="mode" value="">
             <div class="modal-body">
               <div class="card mb-3">
                 <div class="card-header">Basic Information</div>
@@ -1567,6 +1581,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                     try {
                         // Basic Information
                         $('input[name="case_number"]').val(data.case_number);
+                        $('input[name="mode"]').val('edit');
                         $('input[name="date_opened"]').val(data.date_opened);
                         $('input[name="region_province"]').val(data.region_province);
                         $('input[name="source_of_patient"]').val(data.source_of_patient);

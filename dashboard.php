@@ -11,6 +11,7 @@ include_once('head.php');
 
 // Define treatment outcomes
 $outcomes = [
+    'ON-GOING',
     'CURED',
     'TREATMENT COMPLETE',
     'TREATMENT FAILED',
@@ -284,6 +285,7 @@ while ($row = $treatmentResults->fetch_assoc()) {
         $treatmentData[$row['treatment_outcome']][$row['month']] = (int)$row['count'];
     }
 }
+
 // Convert to JSON for JavaScript
 $monthLabels = json_encode(array_column($months, 'label'));
 $treatmentDataJSON = json_encode($treatmentData);
@@ -341,10 +343,10 @@ $gradients = [
         <div class="col-12">
           <div class="card">
             <div class="card-body p-3">
-              <form method="GET" class="row align-items-center">
+              <form method="GET" class="row justify-content-end">
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Municipality</label>
-                    <select name="municipality" class="form-select" onchange="updateBarangays(this.value)">
+                    <select name="municipality" class="form-select text-end" onchange="updateBarangays(this.value)">
                         <option value="0">All Municipalities</option>
                         <?php 
                         $municipalitiesQuery = "SELECT DISTINCT m.id, m.location FROM municipalities m ORDER BY m.location";
@@ -360,7 +362,7 @@ $gradients = [
                 
                 <div class="col-md-2 mb-3">
                     <label class="form-label">Age Range</label>
-                    <select name="age_range" class="form-select">
+                    <select name="age_range" class="form-select text-end">
                         <option value="">All Ages</option>
                         <option value="0-14" <?php echo $selectedAgeRange == '0-14' ? 'selected' : ''; ?>>0-14 years</option>
                         <option value="15-24" <?php echo $selectedAgeRange == '15-24' ? 'selected' : ''; ?>>15-24 years</option>
@@ -371,7 +373,7 @@ $gradients = [
 
                 <div class="col-md-2 mb-3">
                     <label class="form-label">Gender</label>
-                    <select name="gender" class="form-select">
+                    <select name="gender" class="form-select text-end">
                         <option value="">All Genders</option>
                         <option value="M" <?php echo $selectedGender == 'M' ? 'selected' : ''; ?>>Male</option>
                         <option value="F" <?php echo $selectedGender == 'F' ? 'selected' : ''; ?>>Female</option>
@@ -566,6 +568,10 @@ $gradients = [
     const monthLabels = <?php echo $monthLabels; ?>;
     console.log(treatmentData);
     const chartColors = {
+        'ON-GOING': {
+            border: 'rgba(52, 152, 219, 1)',  // Soft blue
+            background: 'rgba(52, 152, 219, 0.1)'
+        },
         'CURED': {
             border: 'rgba(52, 152, 219, 1)',  // Soft blue
             background: 'rgba(52, 152, 219, 0.1)'
