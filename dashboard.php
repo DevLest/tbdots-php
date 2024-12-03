@@ -13,7 +13,7 @@ include_once('head.php');
 $outcomes = [
     'ON-GOING',
     'CURED',
-    'TREATMENT COMPLETE',
+    'TREATMENT COMPLETED',
     'TREATMENT FAILED',
     'DIED',
     'LOST TO FOLLOW UP',
@@ -576,7 +576,7 @@ $gradients = [
             border: 'rgba(52, 152, 219, 1)',  // Soft blue
             background: 'rgba(52, 152, 219, 0.1)'
         },
-        'TREATMENT COMPLETE': {
+        'TREATMENT COMPLETED': {
             border: 'rgba(46, 204, 113, 1)',  // Soft green
             background: 'rgba(46, 204, 113, 0.1)'
         },
