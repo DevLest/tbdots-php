@@ -217,7 +217,70 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         $other_exam_date = !empty($_POST['other_exam_date']) ? $_POST['other_exam_date'] : null;
         $tbdc = !empty($_POST['tbdc']) ? $_POST['tbdc'] : null;
         
-        $bind_result = $stmt->bind_param("sssiissssssssssssss", 
+        // Add validation for bacteriological_status
+        $bacteriological_status = null;
+        if (isset($_POST['bacteriological_status']) && $_POST['bacteriological_status'] !== '') {
+            if (in_array($_POST['bacteriological_status'], ['confirmed', 'clinically'])) {
+                $bacteriological_status = $_POST['bacteriological_status'];
+            } else {
+                $error_message = "Invalid bacteriological status value";
+                // Redirect back or handle error appropriately
+                header("Location: laboratory.php");
+                exit();
+            }
+        }
+        
+        // Add validation for tb_classification
+        $tb_classification = null;
+        if (isset($_POST['tb_classification']) && $_POST['tb_classification'] !== '') {
+            // Convert the input to match the exact enum values
+            switch(strtolower($_POST['tb_classification'])) {
+                case 'pulmonary':
+                    $tb_classification = 'pulmonary';
+                    break;
+                case 'extra_pulmonary':
+                case 'extra pulmonary':
+                case 'extrapulmonary':
+                    $tb_classification = 'extra_pulmonary';
+                    break;
+                default:
+                    $_SESSION['error'] = "Invalid TB classification value";
+                    header("Location: laboratory.php");
+                    exit();
+            }
+        }
+        
+        // Add validation for diagnosis
+        $diagnosis = null;
+        if (isset($_POST['diagnosis']) && $_POST['diagnosis'] !== '') {
+            // Convert the input to match the exact enum values
+            switch(strtoupper($_POST['diagnosis'])) {
+                case 'TB DISEASE':
+                    $diagnosis = 'TB DISEASE';
+                    break;
+                case 'TB INFECTION':
+                    $diagnosis = 'TB INFECTION';
+                    break;
+                case 'TB EXPOSURE':
+                    $diagnosis = 'TB EXPOSURE';
+                    break;
+                default:
+                    $_SESSION['error'] = "Invalid diagnosis value";
+                    header("Location: laboratory.php");
+                    exit();
+            }
+        }
+        
+        // Validate treatment_started_date
+        $treatment_started_date = null;
+        if (isset($_POST['treatment_started_date']) && $_POST['treatment_started_date'] !== '') {
+            $treatment_started_date = $_POST['treatment_started_date'];
+        } else {
+            // Set to current date if empty
+            $treatment_started_date = date('Y-m-d');
+        }
+        
+        $bind_result = $stmt->bind_param("ssssissssssssssssss", 
             $_POST['case_number'],
             $_POST['date_opened'],
             $_POST['region_province'],
@@ -226,12 +289,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             $_POST['source_of_patient'],
             $tst_result,
             $cxr_findings,
-            $_POST['bacteriological_status'],
-            $_POST['tb_classification'],
-            $_POST['diagnosis'],
+            $bacteriological_status,
+            $tb_classification,  // Use the validated value
+            $diagnosis,  // Use the validated value
             $_POST['registration_group'],
             $_POST['treatment_regimen'],
-            $_POST['treatment_started_date'],
+            $treatment_started_date,  // Use the validated value
             $treatment_outcome,
             $treatment_outcome_date,
             $other_exam,
@@ -254,12 +317,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             'source_of_patient' => $_POST['source_of_patient'],
             'tst_result' => $tst_result,
             'cxr_findings' => $cxr_findings,
-            'bacteriological_status' => $_POST['bacteriological_status'],
-            'tb_classification' => $_POST['tb_classification'],
-            'diagnosis' => $_POST['diagnosis'],
+            'bacteriological_status' => $bacteriological_status,
+            'tb_classification' => $tb_classification,
+            'diagnosis' => $diagnosis,
             'registration_group' => $_POST['registration_group'],
             'treatment_regimen' => $_POST['treatment_regimen'],
-            'treatment_started_date' => $_POST['treatment_started_date'],
+            'treatment_started_date' => $treatment_started_date,
             'treatment_outcome' => $treatment_outcome,
             'treatment_outcome_date' => $treatment_outcome_date,
             'other_exam' => $other_exam,
@@ -372,7 +435,29 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 
                 $has_history = $_POST['drug_history'] === 'Yes' ? 1 : 0;
-                $duration = !empty($_POST['drug_duration']) ? $_POST['drug_duration'] : null;
+                
+                // Validate and format duration
+                $duration = null;
+                if (!empty($_POST['drug_duration'])) {
+                    switch(strtolower(trim($_POST['drug_duration']))) {
+                        case 'less than 1 mo':
+                        case 'less than 1 month':
+                        case '<1':
+                            $duration = 'less than 1 mo';
+                            break;
+                        case '1 mo or more':
+                        case '1 month or more':
+                        case '>=1':
+                            $duration = '1 mo or more';
+                            break;
+                        default:
+                            error_log("Invalid duration value: " . $_POST['drug_duration']);
+                            $_SESSION['error'] = "Invalid duration value. Allowed values are: 'less than 1 mo' or '1 mo or more'";
+                            header("Location: laboratory.php");
+                            exit();
+                    }
+                }
+                
                 $drugs_taken = isset($_POST['drugs_taken']) ? implode(',', $_POST['drugs_taken']) : null;
                 
                 if (!$drug_history_stmt->bind_param("iiss", 
@@ -1119,8 +1204,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                       <div class="form-group mb-0">
                         <label class="me-2">Duration:</label>
                         <select class="form-control" name="drug_duration">
-                          <option>Select Duration of Anti-TB Drug Intake</option>
-                          <option value="less than 1 mo">Less than 1 month</option>
+                          <option value="less than 1 mo" selected>Less than 1 month</option>
                           <option value="1 mo or more">1 month or more</option>
                         </select>
                       </div>
@@ -1183,7 +1267,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         <label>Diagnosis</label>
                         <select name="diagnosis" class="form-control">
                           <option>Select Diagnosis</option>
-                          <option value="TB DISEASE">TB DISEASE</option>
+                          <option value="TB DISEASE" selected>TB DISEASE</option>
                           <option value="TB INFECTION">TB INFECTION</option>
                           <option value="TB EXPOSURE">TB EXPOSURE</option>
                         </select>
