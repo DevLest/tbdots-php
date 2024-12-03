@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
   PRIMARY KEY (`id`),
   KEY `FK_logs_user` (`user_id`),
   CONSTRAINT `FK_logs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.activity_logs: ~28 rows (approximately)
 INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, `details`, `created_at`) VALUES
@@ -65,7 +65,14 @@ INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `table_name`, `record_id
 	(28, 17, 'CREATE', 'patients', 11, 'Added patient: Kuyas kuys', '2024-11-27 07:28:39'),
 	(29, 17, 'INSERT', 'inventory', 15, 'Added inventory for product ID: 1', '2024-12-02 11:49:36'),
 	(30, 17, 'CREATE', 'patients', 12, 'Added patient: 12312', '2024-12-02 12:39:51'),
-	(31, 17, 'CREATE', 'patients', 13, 'Added patient: 3245435345sadas', '2024-12-02 12:40:58');
+	(31, 17, 'CREATE', 'patients', 13, 'Added patient: 3245435345sadas', '2024-12-02 12:40:58'),
+	(32, 14, 'CREATE', 'patients', 14, 'Added patient: Juan Ponce', '2024-12-03 02:17:16'),
+	(33, 17, 'CREATE', 'lab_results', 14, 'Added new laboratory record', '2024-12-03 03:10:02'),
+	(34, 17, 'CREATE', 'lab_results', 1, 'Added new laboratory record', '2024-12-03 03:15:17'),
+	(35, 17, 'CREATE', 'lab_results', 2, 'Added new laboratory record', '2024-12-03 03:20:16'),
+	(36, 17, 'CREATE', 'lab_results', 3, 'Added new laboratory record', '2024-12-03 03:20:38'),
+	(37, 17, 'CREATE', 'lab_results', 4, 'Added new laboratory record', '2024-12-03 03:30:27'),
+	(38, 17, 'CREATE', 'lab_results', 5, 'Added new laboratory record', '2024-12-03 03:30:35');
 
 -- Dumping structure for table tbdots.barangays
 CREATE TABLE IF NOT EXISTS `barangays` (
@@ -216,14 +223,9 @@ CREATE TABLE IF NOT EXISTS `clinical_examinations` (
   PRIMARY KEY (`id`),
   KEY `FK_clinical_lab_results` (`lab_results_id`),
   CONSTRAINT `FK_clinical_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.clinical_examinations: ~6 rows (approximately)
-INSERT INTO `clinical_examinations` (`id`, `lab_results_id`, `examination_date`, `weight`, `unexplained_fever`, `unexplained_cough`, `unimproved_wellbeing`, `poor_appetite`, `positive_pe_findings`, `side_effects`, `created_at`, `updated_at`) VALUES
-	(1, 1, '2024-11-26', 23.00, 1, 0, 1, 0, 1, '323', '2024-11-25 19:53:04', '2024-11-25 19:53:04'),
-	(2, 1, '2024-11-26', 43.00, 0, 0, 1, 0, 1, '323', '2024-11-25 19:53:04', '2024-11-25 19:53:04'),
-	(3, 2, '2024-11-26', 23.00, 1, 0, 1, 0, 1, '323', '2024-11-25 19:54:15', '2024-11-25 19:54:15'),
-	(4, 2, '2024-11-26', 43.00, 0, 0, 1, 0, 1, '323', '2024-11-25 19:54:15', '2024-11-25 19:54:15');
 
 -- Dumping structure for table tbdots.drug_administrations
 CREATE TABLE IF NOT EXISTS `drug_administrations` (
@@ -270,18 +272,30 @@ CREATE TABLE IF NOT EXISTS `drug_dosages` (
   PRIMARY KEY (`id`),
   KEY `lab_results_id` (`lab_results_id`),
   CONSTRAINT `drug_dosages_ibfk_1` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.drug_dosages: ~8 rows (approximately)
+-- Dumping data for table tbdots.drug_dosages: ~4 rows (approximately)
 INSERT INTO `drug_dosages` (`id`, `lab_results_id`, `drug_name`, `month_1`, `month_2`, `month_3`, `month_4`, `month_5`, `month_6`, `month_7`, `month_8`, `month_9`, `month_10`, `month_11`, `month_12`) VALUES
-	(1, 1, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 23.00, 353.00, 345.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-	(2, 1, 'Rifampicin [R]', 231.00, 5345.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-	(3, 1, 'Pyrazinamide [Z]', 131.00, 43.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-	(4, 1, 'Ethambutol [E]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-	(5, 2, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 23.00, 353.00, 345.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
-	(6, 2, 'Rifampicin [R]', 231.00, 5345.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
-	(7, 2, 'Pyrazinamide [Z]', 131.00, 43.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
-	(8, 2, 'Ethambutol [E]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00);
+	(1, 1, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(2, 1, 'Rifampicin [R]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(3, 1, 'Pyrazinamide [Z]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(4, 1, 'Ethambutol [E]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(5, 2, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(6, 2, 'Rifampicin [R]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(7, 2, 'Pyrazinamide [Z]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(8, 2, 'Ethambutol [E]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(9, 3, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(10, 3, 'Rifampicin [R]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(11, 3, 'Pyrazinamide [Z]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(12, 3, 'Ethambutol [E]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(13, 4, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(14, 4, 'Rifampicin [R]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(15, 4, 'Pyrazinamide [Z]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(16, 4, 'Ethambutol [E]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(17, 5, 'Isoniazid [H] 10mg/kg (200mg/5ml)', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(18, 5, 'Rifampicin [R]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(19, 5, 'Pyrazinamide [Z]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00),
+	(20, 5, 'Ethambutol [E]', 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00);
 
 -- Dumping structure for table tbdots.drug_histories
 CREATE TABLE IF NOT EXISTS `drug_histories` (
@@ -293,12 +307,15 @@ CREATE TABLE IF NOT EXISTS `drug_histories` (
   PRIMARY KEY (`id`),
   KEY `FK_history_treatment` (`lab_results_id`),
   CONSTRAINT `FK_history_treatment` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.drug_histories: ~2 rows (approximately)
+-- Dumping data for table tbdots.drug_histories: ~1 rows (approximately)
 INSERT INTO `drug_histories` (`id`, `lab_results_id`, `has_history`, `duration`, `drugs_taken`) VALUES
-	(1, 1, 1, 'less than 1 mo', 'R,Z'),
-	(2, 2, 1, 'less than 1 mo', 'R,Z');
+	(1, 1, 1, 'less than 1 mo', 'H,R'),
+	(2, 2, 0, 'less than 1 mo', NULL),
+	(3, 3, 0, 'less than 1 mo', NULL),
+	(4, 4, 0, 'less than 1 mo', NULL),
+	(5, 5, 0, 'less than 1 mo', NULL);
 
 -- Dumping structure for table tbdots.drug_prescriptions
 CREATE TABLE IF NOT EXISTS `drug_prescriptions` (
@@ -326,12 +343,9 @@ CREATE TABLE IF NOT EXISTS `dssm_results` (
   PRIMARY KEY (`id`),
   KEY `lab_results_id` (`lab_results_id`),
   CONSTRAINT `dssm_results_ibfk_1` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.dssm_results: ~2 rows (approximately)
-INSERT INTO `dssm_results` (`id`, `lab_results_id`, `month`, `due_date`, `exam_date`, `result`) VALUES
-	(1, 1, 0, '2024-11-26', '2024-11-26', '4324'),
-	(2, 2, 0, '2024-11-26', '2024-11-26', '4324');
+-- Dumping data for table tbdots.dssm_results: ~0 rows (approximately)
 
 -- Dumping structure for table tbdots.household_members
 CREATE TABLE IF NOT EXISTS `household_members` (
@@ -343,12 +357,9 @@ CREATE TABLE IF NOT EXISTS `household_members` (
   PRIMARY KEY (`id`),
   KEY `FK_household_treatment` (`lab_results_id`) USING BTREE,
   CONSTRAINT `FK_household_treatment` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.household_members: ~2 rows (approximately)
-INSERT INTO `household_members` (`id`, `lab_results_id`, `first_name`, `age`, `screened`) VALUES
-	(1, 1, '12312', 32, 0),
-	(2, 2, '12312', 32, 0);
+-- Dumping data for table tbdots.household_members: ~0 rows (approximately)
 
 -- Dumping structure for table tbdots.inventory
 CREATE TABLE IF NOT EXISTS `inventory` (
@@ -363,7 +374,7 @@ CREATE TABLE IF NOT EXISTS `inventory` (
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.inventory: ~0 rows (approximately)
+-- Dumping data for table tbdots.inventory: ~15 rows (approximately)
 INSERT INTO `inventory` (`id`, `product_id`, `quantity`, `expiration_date`, `batch_number`, `created_at`) VALUES
 	(1, 1, 23, '2024-11-14', '20241112-001', '2024-11-12 20:43:33'),
 	(2, 1, 2, '2024-12-02', '20241202-001', '2024-12-02 11:38:12'),
@@ -384,7 +395,7 @@ INSERT INTO `inventory` (`id`, `product_id`, `quantity`, `expiration_date`, `bat
 -- Dumping structure for table tbdots.lab_results
 CREATE TABLE IF NOT EXISTS `lab_results` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `case_number` varchar(50) NOT NULL,
+  `case_number` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `date_opened` date DEFAULT NULL,
   `region_province` varchar(100) DEFAULT NULL,
   `facility_name` varchar(100) DEFAULT NULL,
@@ -397,7 +408,7 @@ CREATE TABLE IF NOT EXISTS `lab_results` (
   `registration_group` enum('New','Relapse','Treatment after Failure','TALF','PTOU','Other') DEFAULT NULL,
   `treatment_regimen` varchar(50) DEFAULT NULL,
   `treatment_started_date` date DEFAULT NULL,
-  `treatment_outcome` enum('CURED','TREATMENT COMPLETED','TREATMENT FAILED','DIED','LOST TO FOLLOW UP','NOT EVALUATED') DEFAULT NULL,
+  `treatment_outcome` enum('CURED','TREATMENT COMPLETED','TREATMENT FAILED','DIED','LOST TO FOLLOW UP','NOT EVALUATED','ON-GOING') DEFAULT NULL,
   `treatment_outcome_date` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -441,13 +452,15 @@ CREATE TABLE IF NOT EXISTS `lab_results` (
   KEY `FK_treatment_physician` (`physician_id`),
   CONSTRAINT `FK_treatment_patient` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`),
   CONSTRAINT `FK_treatment_physician` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table tbdots.lab_results: ~3 rows (approximately)
 INSERT INTO `lab_results` (`id`, `case_number`, `date_opened`, `region_province`, `facility_name`, `patient_id`, `physician_id`, `source_of_patient`, `bacteriological_status`, `tb_classification`, `diagnosis`, `registration_group`, `treatment_regimen`, `treatment_started_date`, `treatment_outcome`, `treatment_outcome_date`, `created_at`, `updated_at`, `tst_result`, `cxr_findings`, `other_exam`, `other_exam_date`, `tbdc`, `dssm_due_date_0`, `dssm_due_date_1`, `dssm_due_date_2`, `dssm_due_date_3`, `dssm_due_date_4`, `dssm_due_date_5`, `dssm_due_date_6`, `dssm_due_date_7`, `dssm_exam_date_0`, `dssm_exam_date_1`, `dssm_exam_date_2`, `dssm_exam_date_3`, `dssm_exam_date_4`, `dssm_exam_date_5`, `dssm_exam_date_6`, `dssm_exam_date_7`, `dssm_result_0`, `dssm_result_1`, `dssm_result_2`, `dssm_result_3`, `dssm_result_4`, `dssm_result_5`, `dssm_result_6`, `dssm_result_7`, `bcg_scar`, `height`, `occupation`, `phil_health_no`, `contact_person`, `contact_number`) VALUES
-	(1, '2024-0001', '2024-11-26', 'Negros Occidental', NULL, 4, 17, 'Private Hospital/Clinics/Physicians/NGOs', 'confirmed', 'extra_pulmonary', 'TB INFECTION', 'Treatment after Failure', '2HRZE/4HR', '2024-11-26', 'CURED', '2024-11-26', '2024-11-25 19:53:04', '2024-11-25 19:53:04', '324', '23423', '13123', '2024-11-26', '23211', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-	(2, '2024-0001', '2024-11-26', 'Negros Occidental', NULL, 11, 17, 'Private Hospital/Clinics/Physicians/NGOs', 'confirmed', 'extra_pulmonary', 'TB INFECTION', 'Treatment after Failure', '2HRZE/4HR', '2024-11-26', 'TREATMENT FAILED', '2024-11-26', '2024-11-25 19:54:15', '2024-12-02 12:54:41', '324', '23423', '13123', '2024-11-26', '23211', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-	(6, '2024-0001', '2024-11-26', 'Negros Occidental', NULL, 10, 17, 'Private Hospital/Clinics/Physicians/NGOs', 'confirmed', 'extra_pulmonary', 'TB INFECTION', 'Treatment after Failure', '2HRZE/4HR', '2024-11-26', 'TREATMENT COMPLETED', '2024-11-26', '2024-11-25 19:54:15', '2024-12-02 12:53:30', '324', '23423', '13123', '2024-11-26', '23211', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	(1, '2024-1', '2024-12-03', '', NULL, 4, 17, 'Public Health Center', NULL, NULL, 'TB DISEASE', 'New', 'Select Treatment Regimen', '2024-12-03', 'ON-GOING', NULL, '2024-12-03 03:15:17', '2024-12-03 03:15:17', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+	(2, '2024-2', '2024-12-10', '', NULL, 10, 17, 'Public Health Center', NULL, NULL, 'TB DISEASE', 'New', 'Select Treatment Regimen', '2024-12-03', 'CURED', '2024-12-03', '2024-12-03 03:20:16', '2024-12-03 03:21:32', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+	(3, '2024-3', '2024-12-03', '', NULL, 14, 17, 'Public Health Center', NULL, NULL, 'TB DISEASE', 'New', 'Select Treatment Regimen', '2024-12-03', 'TREATMENT COMPLETED', '2024-12-03', '2024-12-03 03:20:38', '2024-12-03 03:21:36', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+	(4, '2024-3', '2024-12-03', '', NULL, 14, 17, 'Public Health Center', NULL, NULL, 'TB DISEASE', 'New', 'Select Treatment Regimen', '2024-12-03', 'TREATMENT COMPLETED', '2024-12-03', '2024-12-03 03:30:27', '2024-12-03 03:30:27', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+	(5, '2024-3', '2024-12-03', '', NULL, 14, 17, 'Public Health Center', NULL, NULL, 'TB DISEASE', 'New', 'Select Treatment Regimen', '2024-12-03', 'TREATMENT FAILED', '2024-12-03', '2024-12-03 03:30:35', '2024-12-03 03:30:35', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- Dumping structure for table tbdots.locations
 CREATE TABLE IF NOT EXISTS `locations` (
@@ -662,15 +675,16 @@ CREATE TABLE IF NOT EXISTS `patients` (
   CONSTRAINT `FK_patients_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`),
   CONSTRAINT `FK_patients_locations` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`),
   CONSTRAINT `FK_patients_users` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.patients: ~5 rows (approximately)
+-- Dumping data for table tbdots.patients: ~3 rows (approximately)
 INSERT INTO `patients` (`id`, `fullname`, `age`, `gender`, `contact`, `address`, `physician_id`, `location_id`, `lab_results_id`, `updated_at`, `created_at`, `height`, `dob`, `bcg_scar`, `occupation`, `phil_health_no`, `contact_person`, `contact_person_no`) VALUES
 	(4, 'Lester bon Biono', 25, 1, '636565113', 'Brgy. San Teodoro, Binalbagan, Negros Occidental', 15, 1, 1, '2024-12-02 12:56:30', '2024-11-10 17:34:52', 21312, '2024-11-22', NULL, 'Farmer', '12312', '12sdas', '164654'),
 	(10, 'Bea Sasi', 50, 2, NULL, NULL, 15, 66, 6, '2024-12-02 12:56:10', '2024-11-13 02:31:37', 0, '2024-11-11', NULL, '', '', '', ''),
 	(11, 'Kuyas kuys', 21, 1, '', '', 16, 60, 2, '2024-12-02 12:56:40', '2024-11-27 07:28:39', 0, '2024-11-27', NULL, '', '', '', ''),
 	(12, '12312', 2312, 1, '', '', 15, 54, NULL, '2024-12-02 12:39:51', '2024-12-02 12:39:51', 23, '2024-12-02', NULL, '', '', '', ''),
-	(13, '3245435345sadas', 32, 1, '', '', 15, 54, NULL, '2024-12-02 12:40:58', '2024-12-02 12:40:58', 32, '2024-12-02', NULL, '', '', '', '');
+	(13, '3245435345sadas', 32, 1, '', '', 15, 54, NULL, '2024-12-02 12:40:58', '2024-12-02 12:40:58', 32, '2024-12-02', NULL, '', '', '', ''),
+	(14, 'Juan Ponce', 26, 1, '', '', 15, 56, NULL, '2024-12-03 02:17:16', '2024-12-03 02:17:16', 0, '1985-01-15', NULL, '', '', '', '');
 
 -- Dumping structure for table tbdots.products
 CREATE TABLE IF NOT EXISTS `products` (
@@ -684,7 +698,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.products: ~1 rows (approximately)
+-- Dumping data for table tbdots.products: ~2 rows (approximately)
 INSERT INTO `products` (`id`, `brand_name`, `generic_name`, `uses`, `dosage`, `unit_of_measure`, `created_at`) VALUES
 	(1, 'Biogesic', 'Paracetamol', 'Fever', '500', 'Tablet', '2024-11-12 20:41:49');
 
@@ -714,7 +728,7 @@ CREATE TABLE IF NOT EXISTS `test_lists` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.test_lists: ~7 rows (approximately)
+-- Dumping data for table tbdots.test_lists: ~6 rows (approximately)
 INSERT INTO `test_lists` (`id`, `name`, `updated_at`, `created_at`) VALUES
 	(1, 'Xpert MTB / RIF', '2024-05-24 09:14:07', '2024-05-24 09:14:07'),
 	(2, 'Smear Microscopy', '2024-05-24 09:14:22', '2024-05-24 09:14:22'),
@@ -739,7 +753,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   CONSTRAINT `FK_users_roles` FOREIGN KEY (`role`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.users: ~5 rows (approximately)
+-- Dumping data for table tbdots.users: ~3 rows (approximately)
 INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`) VALUES
 	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 2, '2024-05-03 05:29:07', '2024-05-26 08:02:01'),
 	(14, 'admin', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'admin', 2, '2024-05-27 06:30:41', '2024-05-27 06:30:41'),

@@ -179,16 +179,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if ($check_result->num_rows > 0) {
                 $existing_record = $check_result->fetch_assoc();
+                $check_stmt->close(); // Move close() inside the if block
                 $_SESSION['error'] = "Patient already has an existing laboratory record with case number: " . $existing_record['case_number'];
                 throw new Exception("Patient already has an existing laboratory record with case number: " . $existing_record['case_number']);
             }
             
-            $check_stmt->close(); // Move this inside the if block
-        }
-
-        // Ensure $check_stmt is defined before calling close()
-        if (isset($check_stmt)) {
-            $check_stmt->close();
+            $check_stmt->close(); // Close statement if no existing record found
         }
 
         // Insert into lab_results table
