@@ -815,18 +815,18 @@ $physicians = $conn->query($physicianssql);
                   <tbody>
                     <?php 
                         if ($patientsData->num_rows > 0) {
-                          $address = '';
-                          if (!empty($row["barangay_name"])) {
-                              $address .= "Brgy. " . htmlspecialchars($row["barangay_name"]);
-                          }
-                          if (!empty($row["municipality_name"])) {
-                              $address .= (!empty($address) ? ", " : "") . htmlspecialchars($row["municipality_name"]);
-                          }
-                          if (empty($address) && !empty($row["address"])) {
-                              $address = htmlspecialchars($row["address"]);
-                          }
                           // Output data of each row
                           while($row = $patientsData->fetch_assoc()) {
+                            $address = '';
+                            if (!empty($row["barangay_name"])) {
+                                $address .= "Brgy. " . htmlspecialchars($row["barangay_name"]);
+                            }
+                            if (!empty($row["municipality_name"])) {
+                                $address .= (!empty($address) ? ", " : "") . htmlspecialchars($row["municipality_name"]);
+                            }
+                            if (empty($address) && !empty($row["address"])) {
+                                $address = htmlspecialchars($row["address"]);
+                            }
                             // Check if lab results exist for the patient
                             $stmt = $conn->prepare("SELECT COUNT(*) as count FROM lab_results WHERE patient_id = ?");
                             $stmt->bind_param('i', $row["id"]);
@@ -909,11 +909,11 @@ $physicians = $conn->query($physicianssql);
                   </div>
                   <div class="form-group">
                     <label for="dob">Date of Birth</label>
-                    <input type="date" class="form-control" id="dob" name="dob">
+                    <input type="date" class="form-control" id="dob" name="dob" required>
                   </div>
                   <div class="form-group">
                     <label for="age">Age</label>
-                    <input type="number" class="form-control" id="age" name="age" required>
+                    <input type="number" class="form-control" id="age" name="age">
                   </div>
                   <div class="form-group">
                     <label for="gender">Gender</label>
@@ -933,10 +933,10 @@ $physicians = $conn->query($physicianssql);
                     <label for="contact">Contact Number</label>
                     <input type="text" class="form-control" id="contact" name="contact">
                   </div>
-                  <div class="form-group">
+                  <!-- <div class="form-group">
                     <label for="address">Address</label>
                     <textarea class="form-control" id="address" name="address" rows="2"></textarea>
-                  </div>
+                  </div> -->
                   <div class="form-group">
                     <label for="occupation">Occupation</label>
                     <input type="text" class="form-control" id="occupation" name="occupation">
@@ -1035,7 +1035,7 @@ $physicians = $conn->query($physicianssql);
         document.getElementById('age').value = '';
         document.getElementById('gender').value = '';
         document.getElementById('contact').value = '';
-        document.getElementById('address').value = '';
+        // document.getElementById('address').value = '';
         document.getElementById('height').value = '';
         document.getElementById('dob').value = '';
         document.getElementById('occupation').value = '';
@@ -1064,7 +1064,7 @@ $physicians = $conn->query($physicianssql);
         document.getElementById('age').value = data.age;
         document.getElementById('gender').value = data.gender;
         document.getElementById('contact').value = data.contact;
-        document.getElementById('address').value = data.address;
+        // document.getElementById('address').value = data.address;
         document.getElementById('height').value = data.height;
         document.getElementById('dob').value = data.dob;
         document.getElementById('occupation').value = data.occupation;
@@ -1342,10 +1342,6 @@ $physicians = $conn->query($physicianssql);
                       <div class="detail-item">
                         <label>Contact Number:</label>
                         <span>${patient.contact || 'N/A'}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Address:</label>
-                        <span>${patient.address || 'N/A'}</span>
                       </div>
                       <div class="detail-item">
                         <label>PhilHealth Number:</label>

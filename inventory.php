@@ -222,6 +222,34 @@ $products = $conn->query($sql);
             max-width: calc(100% - 1rem);
         }
     }
+
+    /* Button styling */
+    .btn.btn-sm {
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        min-width: fit-content !important;
+    }
+    
+    .btn.bg-white {
+        color: #344767 !important;
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+    }
+    
+    .btn.bg-white:hover {
+        background-color: #f8f9fa !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* Search input styling */
+    .input-group-outline {
+        min-width: 200px;
+        max-width: 300px;
+        flex: 1;
+    }
 </style>
 
 <body class="g-sidenav-show bg-gray-200">
@@ -237,15 +265,15 @@ $products = $conn->query($sql);
                             <div class="bg-gradient-primary shadow-primary border-radius-lg pt-4 pb-3">
                                 <div class="d-flex justify-content-between align-items-center px-3">
                                     <h6 class="text-white text-capitalize mb-0">Inventory Management</h6>
-                                    <div class="d-flex align-items-center">
-                                        <div class="input-group input-group-outline bg-white rounded me-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="input-group input-group-outline bg-white rounded">
                                             <input type="text" id="searchInventory" class="form-control" placeholder="Search inventory...">
                                         </div>
-                                        <button type="button" class="btn btn-light me-2" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                                            <i class="fa fa-plus"></i> Add Product
+                                        <button type="button" class="btn bg-white btn-sm" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                                            + Product
                                         </button>
-                                        <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#addInventoryModal">
-                                            <i class="fa fa-plus"></i> Add Stock
+                                        <button type="button" class="btn bg-white btn-sm" data-bs-toggle="modal" data-bs-target="#addInventoryModal">
+                                            + Stock
                                         </button>
                                     </div>
                                 </div>

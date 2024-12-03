@@ -1160,6 +1160,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                       <div class="form-group mb-2">
                         <label>Treatment Outcome</label>
                         <select name="treatment_outcome" class="form-control">
+                          <option value="ON-GOING" selected>ON-GOING</option>
                           <option value="CURED">CURED</option>
                           <option value="TREATMENT COMPLETED">TREATMENT COMPLETED</option>
                           <option value="TREATMENT FAILED">TREATMENT FAILED</option>
