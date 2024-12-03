@@ -10,6 +10,16 @@ require_once "connection/db.php";
 require_once "functions/log_activity.php";
 include_once('head.php');
 
+// Add this near the top of the file, after session_start()
+if(isset($_SESSION['error'])) {
+    $error_message = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
+if(isset($_SESSION['success'])) {
+    $success_message = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+
 // Consolidate all queries at the top
 $patientsSqlList = "SELECT 
                     t2.id,
@@ -76,7 +86,7 @@ $lastCaseNumberSql = "SELECT MAX(CAST(SUBSTRING(case_number, 5) AS UNSIGNED)) as
                     WHERE case_number LIKE CONCAT(YEAR(CURRENT_DATE), '-%')";
 $lastCaseResult = $conn->query($lastCaseNumberSql);
 $lastNumber = $lastCaseResult->fetch_assoc()['last_number'] ?? 0;
-$newCaseNumber = date('Y') . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+$newCaseNumber = date('Y') . '-' . ($lastNumber + 1);
 
 // Handle form submissions
 if($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -99,10 +109,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 treatment_started_date = ?,
                 treatment_outcome = ?,
                 treatment_outcome_date = ?
-                WHERE id = ?";
+                WHERE case_number = ?";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssssssssssssi", 
+            $stmt->bind_param("sssssssssssss", 
                 $_POST['date_opened'],
                 $_POST['region_province'],
                 $_POST['facility_name'],
@@ -115,12 +125,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_POST['treatment_started_date'],
                 $_POST['treatment_outcome'],
                 $_POST['treatment_outcome_date'],
-                $_POST['id']
+                $_POST['case_number']
             );
             
             if ($stmt->execute()) {
                 // Log the activity
-                logActivity($conn, $_SESSION['user_id'], 'UPDATE', 'lab_results', $_POST['id'], 'Updated laboratory record #' . $_POST['id']);
+                logActivity($conn, $_SESSION['user_id'], 'UPDATE', 'lab_results', $_POST['case_number'], 'Updated laboratory record #' . $_POST['case_number']);
                 
                 $response['success'] = true;
                 $response['message'] = 'Record updated successfully';
@@ -147,6 +157,27 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         // Debug: Print the query and values
         error_log("Starting lab results insertion...");
         
+        // Check if patient already has an existing lab record
+        $check_sql = "SELECT case_number FROM lab_results WHERE patient_id = ?";
+        $check_stmt = $conn->prepare($check_sql);
+        
+        if (!$check_stmt) {
+            $_SESSION['error'] = "Failed to prepare check statement: " . $conn->error;
+            throw new Exception("Failed to prepare check statement: " . $conn->error);
+        }
+        
+        $check_stmt->bind_param("i", $_POST['patient_id']);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
+        
+        if ($check_result->num_rows > 0) {
+            $existing_record = $check_result->fetch_assoc();
+            $_SESSION['error'] = "Patient already has an existing laboratory record with case number: " . $existing_record['case_number'];
+            throw new Exception("Patient already has an existing laboratory record with case number: " . $existing_record['case_number']);
+        }
+        
+        $check_stmt->close();
+
         // Insert into lab_results table
         $sql = "INSERT INTO lab_results (
             case_number, 
@@ -173,6 +204,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt = $conn->prepare($sql);
         
         if (!$stmt) {
+            $_SESSION['error'] = "Prepare failed: " . $conn->error;
             throw new Exception("Prepare failed: " . $conn->error);
         }
         
@@ -208,6 +240,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         );
         
         if (!$bind_result) {
+            $_SESSION['error'] = "Binding parameters failed: " . $stmt->error;
             throw new Exception("Binding parameters failed: " . $stmt->error);
         }
         
@@ -235,6 +268,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         ]));
         
         if (!$stmt->execute()) {
+            $_SESSION['error'] = "Execute failed: " . $stmt->error;
             throw new Exception("Execute failed: " . $stmt->error);
         }
         
@@ -253,6 +287,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 $exam_stmt = $conn->prepare($exam_sql);
                 if (!$exam_stmt) {
+                    $_SESSION['error'] = "Prepare clinical examinations failed: " . $conn->error;
                     throw new Exception("Prepare clinical examinations failed: " . $conn->error);
                 }
                 
@@ -277,10 +312,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                             $pe_findings,
                             $side_effects
                         )) {
+                            $_SESSION['error'] = "Binding clinical examination parameters failed: " . $exam_stmt->error;
                             throw new Exception("Binding clinical examination parameters failed: " . $exam_stmt->error);
                         }
                         
                         if (!$exam_stmt->execute()) {
+                            $_SESSION['error'] = "Execute clinical examination failed: " . $exam_stmt->error;
                             throw new Exception("Execute clinical examination failed: " . $exam_stmt->error);
                         }
                     }
@@ -295,6 +332,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 $household_stmt = $conn->prepare($household_sql);
                 if (!$household_stmt) {
+                    $_SESSION['error'] = "Prepare household members failed: " . $conn->error;
                     throw new Exception("Prepare household members failed: " . $conn->error);
                 }
                 
@@ -309,10 +347,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                             $age,
                             $screened
                         )) {
+                            $_SESSION['error'] = "Binding household member parameters failed: " . $household_stmt->error; 
                             throw new Exception("Binding household member parameters failed: " . $household_stmt->error);
                         }
                         
                         if (!$household_stmt->execute()) {
+                            $_SESSION['error'] = "Execute household member failed: " . $household_stmt->error;
                             throw new Exception("Execute household member failed: " . $household_stmt->error);
                         }
                     }
@@ -327,6 +367,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 $drug_history_stmt = $conn->prepare($drug_history_sql);
                 if (!$drug_history_stmt) {
+                    $_SESSION['error'] = "Prepare drug history failed: " . $conn->error;
                     throw new Exception("Prepare drug history failed: " . $conn->error);
                 }
                 
@@ -340,10 +381,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                     $duration,
                     $drugs_taken
                 )) {
+                    $_SESSION['error'] = "Binding drug history parameters failed: " . $drug_history_stmt->error;
                     throw new Exception("Binding drug history parameters failed: " . $drug_history_stmt->error);
                 }
                 
                 if (!$drug_history_stmt->execute()) {
+                    $_SESSION['error'] = "Execute drug history failed: " . $drug_history_stmt->error;
                     throw new Exception("Execute drug history failed: " . $drug_history_stmt->error);
                 }
             }
@@ -589,6 +632,20 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     }
   }
 </style>
+
+<?php if(isset($error_message)): ?>
+<div class="alert alert-danger alert-dismissible fade show position-fixed text-white" role="alert" style="top: 20px; right: 20px; z-index: 1080; max-width: 500px;">
+    <?php echo $error_message; ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<?php endif; ?>
+
+<?php if(isset($success_message)): ?>
+<div class="alert alert-success alert-dismissible fade show position-fixed" role="alert" style="top: 20px; right: 20px; z-index: 1080; max-width: 500px;">
+    <?php echo $success_message; ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<?php endif; ?>
 
 <body class="g-sidenav-show  bg-gray-200">
   <?php
@@ -1359,17 +1416,18 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                showAlert('Laboratory record updated successfully');
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addLaboratoryModal'));
                 modal.hide();
                 window.location.reload();
             } else {
-                alert('Error updating laboratory record: ' + data.message);
+                showAlert('Error updating laboratory record: ' + data.message, 'danger');
             }
             hideLoading();
         })
         .catch(error => {
             hideLoading();
-            alert('Error updating laboratory record: ' + error.message);
+            showAlert('Error updating laboratory record: ' + error.message, 'danger');
         });
     }
 
@@ -1427,7 +1485,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         $('input[name="case_number"]').val(data.case_number);
                         $('input[name="date_opened"]').val(data.date_opened);
                         $('input[name="region_province"]').val(data.region_province);
-                        $('select[name="source_of_patient"]').val(data.source_of_patient);
+                        $('input[name="source_of_patient"]').val(data.source_of_patient);
                         
                         // Patient Details
                         $('#patient_select').val(data.patient_id);
@@ -1549,7 +1607,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                     error: error,
                     response: xhr.responseText
                 });
-                alert('Error loading laboratory record. Please check the console for details.');
+                showAlert('Error loading laboratory record: ' + error, 'danger');
             }
         });
     }
@@ -1568,6 +1626,25 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             <td><input type="text" class="form-control" name="side_effects[]"></td>
         `;
         tbody.appendChild(newRow);
+    }
+
+    // Add this function to handle alerts
+    function showAlert(message, type = 'success') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.role = 'alert';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1080; max-width: 500px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Auto dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
     }
   </script>
   <div class="modal fade" id="viewTreatmentCardModal" tabindex="-1" aria-labelledby="viewTreatmentCardModalLabel" aria-hidden="true">
