@@ -87,27 +87,127 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Add Inventory (separate from product creation)
     if(isset($_POST['action']) && $_POST['action'] == 'inventory') {
+        
         try {
-            $product_id = trim($_POST['product_id']);
-            $quantity = trim($_POST['quantity']);
-            $expiration_date = trim($_POST['expiration_date']);
-            $batch_number = generateBatchNumber($conn);  // Auto-generate batch number
-
-            $sql = "INSERT INTO inventory (product_id, quantity, expiration_date, batch_number) 
-                   VALUES (?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("iiss", $product_id, $quantity, $expiration_date, $batch_number);
+            $type = $_POST['type']; // Will now be either 'IN' or 'OUT'
             
-            if($stmt->execute()) {
-                logActivity($conn, $_SESSION['user_id'], 'INSERT', 'inventory', $stmt->insert_id, 
-                           "Added inventory for product ID: $product_id");
-                $_SESSION['success_message'] = "Inventory successfully added!";
+            if($type == 'IN') {
+                // Process single stock in
+                $product_id = trim($_POST['product_id']);
+                $quantity = trim($_POST['quantity']);
+                $expiration_date = trim($_POST['expiration_date']);
+                $batch_number = generateBatchNumber($conn);
+                
+                $sql = "INSERT INTO inventory (product_id, quantity, expiration_date, batch_number) 
+                       VALUES (?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("iiss", $product_id, $quantity, $expiration_date, $batch_number);
+                
+                if($stmt->execute()) {
+                    // Record transaction
+                    $sql = "INSERT INTO inventory_transactions 
+                           (type, product_id, quantity, batch_number, patient_id, notes, user_id) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    $stmt = $conn->prepare($sql);
+                    $patient_id = isset($_POST['patient_id']) ? $_POST['patient_id'] : null;
+                    $notes = isset($_POST['notes']) ? $_POST['notes'] : null;
+                    $stmt->bind_param("siisisi", $type, $product_id, $quantity, 
+                                    $batch_number, $patient_id, $notes, $_SESSION['user_id']);
+                    $stmt->execute();
+                }
+                
             } else {
-                throw new Exception("Failed to execute statement.");
+                // Process multiple stock out items
+                $product_ids = $_POST['product_id'];
+                $quantities = $_POST['quantity'];
+                $patient_id = isset($_POST['patient_id']) && !empty($_POST['patient_id']) ? $_POST['patient_id'] : null;
+                $notes = isset($_POST['notes']) ? $_POST['notes'] : null;
+                
+                // Begin transaction
+                $conn->begin_transaction();
+                
+                try {
+                    // Process each item
+                    for($i = 0; $i < count($product_ids); $i++) {
+                        $product_id = trim($product_ids[$i]);
+                        $quantity = trim($quantities[$i]);
+                        
+                        // Validate available quantity - Fixed query
+                        $sql = "SELECT COALESCE(SUM(quantity), 0) as total 
+                               FROM inventory 
+                               WHERE product_id = ? 
+                               AND (expiration_date > CURDATE() OR expiration_date IS NULL)
+                               AND quantity > 0";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->bind_param("i", $product_id);
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        $available = $result->fetch_assoc()['total'];
+                        
+                        if($available < $quantity) {
+                            throw new Exception("Insufficient inventory for product ID: $product_id. Available: $available, Requested: $quantity");
+                        }
+                        
+                        // Get inventory items ordered by expiration date (FIFO)
+                        $sql = "SELECT id, quantity 
+                               FROM inventory 
+                               WHERE product_id = ? 
+                               AND (expiration_date > CURDATE() OR expiration_date IS NULL)
+                               AND quantity > 0
+                               ORDER BY expiration_date ASC, id ASC";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->bind_param("i", $product_id);
+                        $stmt->execute();
+                        $inventoryItems = $stmt->get_result();
+                        
+                        $remainingQuantity = $quantity;
+                        
+                        // Deduct from each inventory item until the required quantity is met
+                        while($item = $inventoryItems->fetch_assoc()) {
+                            if($remainingQuantity <= 0) break;
+                            
+                            $deductQuantity = min($remainingQuantity, $item['quantity']);
+                            $newQuantity = $item['quantity'] - $deductQuantity;
+                            
+                            // Update inventory
+                            $sql = "UPDATE inventory 
+                                   SET quantity = ? 
+                                   WHERE id = ?";
+                            $stmt = $conn->prepare($sql);
+                            $stmt->bind_param("ii", $newQuantity, $item['id']);
+                            $stmt->execute();
+                            
+                            $remainingQuantity -= $deductQuantity;
+                        }
+                        
+                        // Record transaction
+                        $sql = "INSERT INTO inventory_transactions 
+                               (type, product_id, quantity, patient_id, notes, user_id) 
+                               VALUES (?, ?, ?, ?, ?, ?)";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->bind_param("siisis", $type, $product_id, $quantity, 
+                                        $patient_id, $notes, $_SESSION['user_id']);
+                        $stmt->execute();
+                    }
+                    
+                    // Commit transaction
+                    $conn->commit();
+                    $_SESSION['success_message'] = "Inventory successfully updated!";
+                    
+                } catch (Exception $e) {
+                    // Rollback transaction on error
+                    $conn->rollback();
+                    error_log("Error in inventory operation: " . $e->getMessage());
+                    $_SESSION['error_message'] = "Error updating inventory: " . $e->getMessage();
+                }
             }
+            
         } catch (Exception $e) {
+            if($type == 'OUT') {
+                $conn->rollback();
+            }
             error_log("Error in inventory operation: " . $e->getMessage());
-            $_SESSION['error_message'] = "Error adding inventory. Please try again.";
+            $_SESSION['error_message'] = "Error updating inventory: " . $e->getMessage();
         }
     }
 
@@ -273,7 +373,10 @@ $products = $conn->query($sql);
                                             + Product
                                         </button>
                                         <button type="button" class="btn bg-white btn-sm" data-bs-toggle="modal" data-bs-target="#addInventoryModal">
-                                            + Stock
+                                            + Stock In
+                                        </button>
+                                        <button type="button" class="btn bg-white btn-sm" data-bs-toggle="modal" data-bs-target="#inventoryOutModal">
+                                            - Stock Out
                                         </button>
                                     </div>
                                 </div>
@@ -413,11 +516,12 @@ $products = $conn->query($sql);
             <div class="modal-dialog modal-xl" style="max-width: 95%; z-index: 9999;">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Add Inventory</h5>
+                        <h5 class="modal-title">Stock In</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <form method="POST">
                         <input type="hidden" name="action" value="inventory">
+                        <input type="hidden" name="type" value="IN">
                         <div class="modal-body">
                             <div class="card mb-3">
                                 <div class="card-header">Stock Information</div>
@@ -454,6 +558,91 @@ $products = $conn->query($sql);
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button type="submit" class="btn btn-primary">Add Stock</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Inventory Out Modal -->
+        <div class="modal fade" id="inventoryOutModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Inventory Out</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form method="POST" id="inventoryOutForm">
+                        <input type="hidden" name="action" value="inventory">
+                        <input type="hidden" name="type" value="OUT">
+                        <div class="modal-body">
+                            <div class="card mb-3">
+                                <div class="card-header">Release Information</div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>Patient (Optional)</label>
+                                                <select class="form-control" name="patient_id">
+                                                    <option value="">Select Patient</option>
+                                                    <?php 
+                                                    $patients = $conn->query("SELECT id, fullname FROM patients ORDER BY fullname");
+                                                    while($patient = $patients->fetch_assoc()): 
+                                                    ?>
+                                                        <option value="<?php echo $patient['id']; ?>">
+                                                            <?php echo htmlspecialchars($patient['fullname']); ?>
+                                                        </option>
+                                                    <?php endwhile; ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-12">
+                                            <div class="form-group">
+                                                <label>Notes</label>
+                                                <textarea class="form-control" name="notes"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="items-container">
+                                        <div class="row item-row mb-3">
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label>Product</label>
+                                                    <select class="form-control product-select" name="product_id[]" required>
+                                                        <option value="">Select Product</option>
+                                                        <?php 
+                                                        $products->data_seek(0);
+                                                        while($row = $products->fetch_assoc()): 
+                                                        ?>
+                                                            <option value="<?php echo $row['id']; ?>" 
+                                                                    data-stock="<?php echo $row['total_stock']; ?>">
+                                                                <?php echo htmlspecialchars($row['brand_name']); ?> 
+                                                                (Available: <?php echo $row['total_stock']; ?>)
+                                                            </option>
+                                                        <?php endwhile; ?>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label>Quantity</label>
+                                                    <input type="number" class="form-control quantity-input" 
+                                                           name="quantity[]" required min="1">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button type="button" class="btn btn-danger remove-item" 
+                                                        style="margin-top: 32px;">Remove</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-success" id="addItem">Add Item</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Release Items</button>
                         </div>
                     </form>
                 </div>
@@ -628,6 +817,69 @@ $products = $conn->query($sql);
             });
             row.addEventListener('mouseout', function() {
                 this.style.backgroundColor = '';
+            });
+        });
+
+        // Handle dynamic item rows
+        $(document).ready(function() {
+            $('#addItem').click(function() {
+                const newRow = $('.item-row:first').clone();
+                newRow.find('input').val('');
+                newRow.find('select').val('');
+                $('.items-container').append(newRow);
+            });
+
+            $(document).on('click', '.remove-item', function() {
+                if($('.item-row').length > 1) {
+                    $(this).closest('.item-row').remove();
+                }
+            });
+
+            // Validate quantity against available stock
+            $(document).on('change', '.quantity-input, .product-select', function() {
+                const row = $(this).closest('.item-row');
+                const quantity = parseInt(row.find('.quantity-input').val()) || 0;
+                const selected = row.find('.product-select option:selected');
+                const available = parseInt(selected.data('stock')) || 0;
+
+                if(quantity > available) {
+                    alert('Quantity cannot exceed available stock: ' + available);
+                    row.find('.quantity-input').val(available);
+                }
+            });
+
+            // Form validation before submit
+            $('#inventoryOutForm').submit(function(e) {
+                const items = {};
+                let isValid = true;
+
+                $('.item-row').each(function() {
+                    const productId = $(this).find('.product-select').val();
+                    const quantity = parseInt($(this).find('.quantity-input').val()) || 0;
+                    
+                    if(!productId || quantity <= 0) {
+                        alert('Please fill all required fields');
+                        isValid = false;
+                        return false;
+                    }
+
+                    // Sum quantities for same product
+                    items[productId] = (items[productId] || 0) + quantity;
+                });
+
+                // Validate total quantities
+                for(const productId in items) {
+                    const available = parseInt($('.product-select option[value="' + productId + '"]').data('stock'));
+                    if(items[productId] > available) {
+                        alert('Total quantity for a product cannot exceed available stock');
+                        isValid = false;
+                        break;
+                    }
+                }
+
+                if(!isValid) {
+                    e.preventDefault();
+                }
             });
         });
     </script>
