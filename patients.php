@@ -24,6 +24,7 @@ $occupation = '';
 $phil_health_no = '';
 $contact_person = '';
 $contact_person_no = '';
+$selectedOutcome = isset($_GET['outcome']) ? $_GET['outcome'] : '0';
 
 if($_SERVER["REQUEST_METHOD"] == "POST"){
 
@@ -246,17 +247,42 @@ if (!empty($searchName)) {
 $whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
 
 // Ensure your SQL query is correct and fetching the necessary data
-$sql = "
-    SELECT 
-        p.*,
-        COALESCE(b.name, '') as barangay_name,
-        COALESCE(m.location, '') as municipality_name
-    FROM patients p
-    LEFT JOIN locations l ON p.location_id = l.id
-    LEFT JOIN municipalities m ON l.municipality_id = m.id
-    LEFT JOIN barangays b ON l.barangay_id = b.id
-    $whereClause
-    ORDER BY p.created_at DESC";
+$sql = "SELECT DISTINCT p.*, 
+        b.name as barangay_name, 
+        m.location as municipality_name,
+        lr.treatment_outcome
+        FROM patients p 
+        LEFT JOIN locations l ON p.location_id = l.id 
+        LEFT JOIN municipalities m ON l.municipality_id = m.id 
+        LEFT JOIN barangays b ON l.barangay_id = b.id
+        LEFT JOIN lab_results lr ON p.id = lr.patient_id
+        WHERE 1=1";
+
+if ($selectedMunicipality != '0') {
+    $sql .= " AND l.municipality_id = '$selectedMunicipality'";
+}
+
+if ($selectedBarangay != '0') {
+    $sql .= " AND l.barangay_id = '$selectedBarangay'";
+}
+
+if ($selectedGender != '0') {
+    $sql .= " AND p.gender = '$selectedGender'";
+}
+
+if (!empty($searchName)) {
+    $sql .= " AND p.fullname LIKE '%$searchName%'";
+}
+
+if ($selectedOutcome != '0') {
+    if ($selectedOutcome == 'NO_RESULTS') {
+        $sql .= " AND lr.id IS NULL";
+    } else {
+        $sql .= " AND lr.treatment_outcome = '$selectedOutcome'";
+    }
+}
+
+$sql .= " ORDER BY p.created_at DESC";
 $patientsData = $conn->query($sql);
 
 $physicianssql = "SELECT * FROM users WHERE role = 3";
@@ -779,6 +805,18 @@ $physicians = $conn->query($physicianssql);
                             <option value="2" <?php echo $selectedGender == 2 ? 'selected' : ''; ?>>Female</option>
                         </select>
                         
+                        <select name="outcome" class="form-select" style="min-width: 180px; max-width: 200px;">
+                            <option value="0">All Outcomes</option>
+                            <option value="CURED" <?php echo $selectedOutcome == 'CURED' ? 'selected' : ''; ?>>Cured</option>
+                            <option value="TREATMENT COMPLETED" <?php echo $selectedOutcome == 'TREATMENT COMPLETED' ? 'selected' : ''; ?>>Treatment Completed</option>
+                            <option value="TREATMENT FAILED" <?php echo $selectedOutcome == 'TREATMENT FAILED' ? 'selected' : ''; ?>>Treatment Failed</option>
+                            <option value="DIED" <?php echo $selectedOutcome == 'DIED' ? 'selected' : ''; ?>>Died</option>
+                            <option value="LOST TO FOLLOW UP" <?php echo $selectedOutcome == 'LOST TO FOLLOW UP' ? 'selected' : ''; ?>>Lost to Follow Up</option>
+                            <option value="NOT EVALUATED" <?php echo $selectedOutcome == 'NOT EVALUATED' ? 'selected' : ''; ?>>Not Evaluated</option>
+                            <option value="ON-GOING" <?php echo $selectedOutcome == 'ON-GOING' ? 'selected' : ''; ?>>On-going</option>
+                            <option value="NO_RESULTS" <?php echo $selectedOutcome == 'NO_RESULTS' ? 'selected' : ''; ?>>No Lab Results</option>
+                        </select>
+                        
                         <input type="text" name="search" class="form-control" placeholder="Search by name..." 
                                value="<?php echo htmlspecialchars($searchName); ?>" style="min-width: 200px; flex: 1;">
                     </div>
@@ -809,6 +847,8 @@ $physicians = $conn->query($physicianssql);
                       </th>
                       <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
                         Registered Since</th>
+                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                        Treatment Status</th>
                       <th class="text-secondary opacity-7"></th>
                     </tr>
                   </thead>
@@ -843,6 +883,9 @@ $physicians = $conn->query($physicianssql);
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".($row["gender"] == 1 ? "Male" : "Female")."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["age"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
+                                <td class='text-center'>
+                                    <span class='text-secondary text-xs font-weight-bold'>" .  (isset($row["treatment_outcome"]) ? htmlspecialchars($row["treatment_outcome"]) : "No Lab Results") . "</span>
+                                </td>
                                 <td class='align-middle'>
                                   <button onclick='showPatientDetails(".$row["id"].")' class='btn btn-link text-secondary mb-0'>
                                     <i class='fa fa-user text-xs'></i> Details
