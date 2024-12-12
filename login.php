@@ -26,7 +26,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     }
 
     if(empty($username_err) && empty($password_err)){
-      $sql = "SELECT users.id, username, first_name, last_name, password, roles.module 
+      $sql = "SELECT users.id, username, first_name, last_name, password, roles.module, roles.id as role_id
               FROM users 
               INNER JOIN roles ON users.role = roles.id 
               WHERE username = ?";
@@ -40,11 +40,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
           $stmt->store_result();
 
           if($stmt->num_rows == 1){
-            $stmt->bind_result($id, $username, $first_name, $last_name, $hashed_password, $module);
+            $stmt->bind_result($id, $username, $first_name, $last_name, $hashed_password, $module, $role_id);
             if($stmt->fetch()){
               if(md5($password) === $hashed_password){
                 session_start();
                 $_SESSION["user_id"] = $id;
+                $_SESSION["role_id"] = $role_id;
                 $_SESSION["username"] = $username;
                 $_SESSION["fullname"] = $first_name . " " . $last_name;
                 $_SESSION["module"] = json_decode($module);

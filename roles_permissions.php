@@ -32,7 +32,18 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['role_id'])) {
 }
 
 // Get all roles (excluding super admin with ID 1)
-$roles = $conn->query("SELECT * FROM roles WHERE id != 1 ORDER BY id");
+$user_role = $_SESSION['role_id']; // Assuming role_id is stored in session
+
+if ($user_role == 1) { // Super Admin
+    // Show all roles except super admin
+    $roles = $conn->query("SELECT * FROM roles WHERE id != 1 ORDER BY id");
+} else if ($user_role == 2) { // Admin
+    // Show only regular and patients roles
+    $roles = $conn->query("SELECT * FROM roles WHERE id IN (3, 4) ORDER BY id");
+} else {
+    // For other roles, show nothing or handle as needed
+    $roles = $conn->query("SELECT * FROM roles WHERE 1=0"); // Returns empty result
+}
 
 // Get all modules
 $modules = $conn->query("SELECT * FROM modules ORDER BY id");

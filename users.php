@@ -203,6 +203,7 @@ $userRoles = $conn->query($rolesQuery);
                   <select class="form-control" id="role" name="role">
                     <option></option>
                     <?php foreach($userRoles as $userRole): ?>
+                      <?php if($userRole['id'] == 1) continue; ?>
                       <option value="<?php echo $userRole['id']; ?>"><?php echo $userRole['description']; ?></option>
                     <?php endforeach; ?>
                   </select>
