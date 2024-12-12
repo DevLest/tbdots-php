@@ -1422,6 +1422,30 @@ $physicians = $conn->query($physicianssql);
             `;
           });
       }
+
+      // Add this function to calculate age from date of birth
+      function calculateAge(birthDate) {
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        
+        // Adjust age if birthday hasn't occurred this year
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        
+        return age;
+      }
+
+      // Add event listener to date of birth input
+      document.getElementById('dob').addEventListener('change', function() {
+        const dob = this.value;
+        if (dob) {
+          const age = calculateAge(dob);
+          document.getElementById('age').value = age;
+        }
+      });
     </script>
 
     <?php include_once('footer.php'); ?>
