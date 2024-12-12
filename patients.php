@@ -894,6 +894,10 @@ $physicians = $conn->query($physicianssql);
                                   <button onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
                                     <i class='fa fa-flask text-xs'></i> Lab Results
                                   </button>" : "") . "
+                                  " . ($_SESSION['role_id'] == 3 ? "
+                                    <button onclick='addLogbookEntry(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
+                                      <i class='fa fa-book text-xs'></i> Add Log
+                                    </button>" : "") . "
                                   " . (in_array(11, $_SESSION['module']) ? "
                                     <button onclick='editPatient(".$row["id"].", ".json_encode($row).")' class='btn btn-link text-secondary mb-0'>
                                       <i class='fa fa-edit text-xs'></i> Edit
@@ -1065,6 +1069,35 @@ $physicians = $conn->query($physicianssql);
           <div class='modal-footer'>
             <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logbook Modal -->
+    <div class="modal fade" id="logbookModal" tabindex="-1" aria-labelledby="logbookModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="logbookModalLabel">Add Logbook Entry</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="logbookForm">
+            <div class="modal-body">
+              <input type="hidden" id="logbook_patient_id" name="patient_id">
+              <div class="form-group mb-3">
+                <label for="log_date">Date</label>
+                <input type="date" class="form-control" id="log_date" name="log_date" required>
+              </div>
+              <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="4" required></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary">Save Entry</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -1445,6 +1478,41 @@ $physicians = $conn->query($physicianssql);
           const age = calculateAge(dob);
           document.getElementById('age').value = age;
         }
+      });
+
+      function addLogbookEntry(patientId, patientName) {
+        document.getElementById('logbook_patient_id').value = patientId;
+        document.getElementById('logbookModalLabel').textContent = `Add Logbook Entry for ${patientName}`;
+        document.getElementById('log_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('notes').value = '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('logbookModal'));
+        modal.show();
+      }
+
+      // Add form submission handler
+      document.getElementById('logbookForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('save_logbook_entry.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('Logbook entry saved successfully');
+            bootstrap.Modal.getInstance(document.getElementById('logbookModal')).hide();
+          } else {
+            alert('Error saving logbook entry: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error saving logbook entry');
+        });
       });
     </script>
 
