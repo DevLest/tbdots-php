@@ -33,7 +33,9 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   }
   
   if(!empty($username) && !empty($password) && !empty($first_name) && !empty($last_name) && !empty($role) && $_POST["id"] == ""){
-    $sql = "INSERT INTO users (username, password, first_name, last_name, role) VALUES ('$username', '$password', '$first_name', '$last_name', '$role')";
+    $location_id = isset($_POST["location_id"]) ? trim($_POST["location_id"]) : null;
+    $sql = "INSERT INTO users (username, password, first_name, last_name, role, location_id) 
+            VALUES ('$username', '$password', '$first_name', '$last_name', '$role', " . ($location_id ? "'$location_id'" : "NULL") . ")";
     $addUsers = $conn->query($sql);
     
     if($addUsers) {
@@ -47,7 +49,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         );
     }
   } else if(isset($_POST["id"]) && !empty(trim($_POST["id"]))){
-    $sql = "UPDATE users SET username = '$username', first_name = '$first_name', last_name = '$last_name', role = '$role' WHERE id = '".trim($_POST["id"])."'";
+    $location_id = isset($_POST["location_id"]) ? trim($_POST["location_id"]) : null;
+    $sql = "UPDATE users SET username = '$username', first_name = '$first_name', last_name = '$last_name', 
+            role = '$role', location_id = " . ($location_id ? "'$location_id'" : "NULL") . " 
+            WHERE id = '".trim($_POST["id"])."'";
     $editUser = $conn->query($sql);
     
     if($editUser) {
@@ -87,11 +92,28 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
   }
 }
 
-$sql = "SELECT users.id, username, first_name, last_name, password, roles.module, roles.description, roles.id as role_id, users.created_at FROM users INNER JOIN roles ON users.role = roles.id WHERE users.role != 3 ORDER BY users.created_at DESC";
+$sql = "SELECT users.id, username, first_name, last_name, password, 
+        roles.module, roles.description, roles.id as role_id, 
+        users.created_at, municipalities.location as municipality, 
+        barangays.name as barangay, users.location_id 
+        FROM users 
+        INNER JOIN roles ON users.role = roles.id 
+        LEFT JOIN locations ON users.location_id = locations.id 
+        LEFT JOIN municipalities ON locations.municipality_id = municipalities.id 
+        LEFT JOIN barangays ON locations.barangay_id = barangays.id 
+        WHERE users.role != 3 
+        ORDER BY users.created_at DESC";
 $users = $conn->query($sql);
 
 $rolesQuery = "SELECT * FROM roles";
 $userRoles = $conn->query($rolesQuery);
+
+$locationsQuery = "SELECT locations.id, municipalities.location as municipality, barangays.name as barangay 
+                  FROM locations 
+                  INNER JOIN municipalities ON locations.municipality_id = municipalities.id 
+                  INNER JOIN barangays ON locations.barangay_id = barangays.id 
+                  ORDER BY municipalities.location, barangays.name";
+$locations = $conn->query($locationsQuery);
 ?>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -127,6 +149,7 @@ $userRoles = $conn->query($rolesQuery);
                       <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Full name</th>
                       <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Role</th>
                       <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Registered Since</th>
+                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Location</th>
                       <th class="text-secondary opacity-7"></th>
                     </tr>
                   </thead>
@@ -141,9 +164,12 @@ $userRoles = $conn->query($rolesQuery);
                                 <td><span class='text-secondary text-xs font-weight-bold'>".$row["first_name"]. " ".$row["last_name"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["description"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
+                                <td><span class='text-secondary text-xs font-weight-bold'>";
+                            echo ($row["municipality"] && $row["barangay"] ? $row["barangay"] . ', ' . $row["municipality"] : 'Not Assigned');
+                            echo "</span></td>
                                 <td class='align-middle'>";
                             echo in_array(3, $_SESSION['module']) ? "
-                              <a href='javascript:void(0);' onclick='editUser(\"".$row["id"]."\",\"".$row["username"]."\",\"".$row["first_name"]."\",\"".$row["last_name"]."\",\"".$row["role_id"]."\")' class='text-secondary font-weight-bold text-xs' data-toggle='tooltip' data-original-title='Edit user'>
+                              <a href='javascript:void(0);' onclick='editUser(\"".$row["id"]."\",\"".$row["username"]."\",\"".$row["first_name"]."\",\"".$row["last_name"]."\",\"".$row["role_id"]."\",\"".($row["location_id"] ?? "")."\")' class='text-secondary font-weight-bold text-xs' data-toggle='tooltip' data-original-title='Edit user'>
                                 Edit
                               </a>" : "";
                             echo in_array(4, $_SESSION['module']) ? "
@@ -208,6 +234,17 @@ $userRoles = $conn->query($rolesQuery);
                     <?php endforeach; ?>
                   </select>
                 </div>
+                <div class="form-group">
+                  <label for="location_id">Location</label>
+                  <select class="form-control" id="location_id" name="location_id">
+                    <option value="">Select Location</option>
+                    <?php foreach($locations as $location): ?>
+                      <option value="<?php echo $location['id']; ?>">
+                        <?php echo $location['barangay'] . ', ' . $location['municipality']; ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -230,13 +267,15 @@ $userRoles = $conn->query($rolesQuery);
       modal.show()
     })
 
-    function editUser(id, username, first_name, last_name, role){
+    function editUser(id, username, first_name, last_name, role, location_id){
       var modal = new bootstrap.Modal(document.getElementById('addUserModal'))
+      console.log(location_id)
       document.getElementById('id').value = id;
       document.getElementById('username').value = username;
       document.getElementById('first_name').value = first_name;
       document.getElementById('last_name').value = last_name;
       document.getElementById('role').value = role;
+      document.getElementById('location_id').value = location_id || '';
       document.getElementById('password').readOnly = true;
       document.getElementById('form-button').innerHTML = "Save Changes";
       modal.show()

@@ -807,18 +807,21 @@ CREATE TABLE IF NOT EXISTS `users` (
   `role` int NOT NULL DEFAULT '0',
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `location_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_users_roles` (`role`),
-  CONSTRAINT `FK_users_roles` FOREIGN KEY (`role`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `location_id` (`location_id`),
+  CONSTRAINT `FK_users_roles` FOREIGN KEY (`role`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table tbdots.users: ~3 rows (approximately)
-INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`) VALUES
-	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 2, '2024-05-03 05:29:07', '2024-05-26 08:02:01'),
-	(14, 'admin', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'admin', 2, '2024-05-27 06:30:41', '2024-05-27 06:30:41'),
-	(15, 'Docone', '21232f297a57a5a743894a0e4a801fc3', 'Doc', 'One', 3, '2024-05-27 06:39:57', '2024-11-12 23:11:19'),
-	(16, 'asdas', '0aa1ea9a5a04b78d4581dd6d17742627', 'asdas', 'dasda', 3, '2024-11-13 02:35:40', '2024-11-13 02:35:40'),
-	(17, 'superad', '21232f297a57a5a743894a0e4a801fc3', 'Super', 'Admin', 1, '2024-11-25 07:30:34', '2024-11-25 07:30:34');
+-- Dumping data for table tbdots.users: ~5 rows (approximately)
+INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`, `location_id`) VALUES
+	(9, 'test', '098f6bcd4621d373cade4e832627b4f6', 'test', 'test', 2, '2024-05-03 05:29:07', '2024-05-26 08:02:01', NULL),
+	(14, 'admin', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'admin', 2, '2024-05-27 06:30:41', '2024-05-27 06:30:41', NULL),
+	(15, 'Docone', '21232f297a57a5a743894a0e4a801fc3', 'Doc', 'One', 3, '2024-05-27 06:39:57', '2024-11-12 23:11:19', NULL),
+	(16, 'asdas', '0aa1ea9a5a04b78d4581dd6d17742627', 'asdas', 'dasda', 3, '2024-11-13 02:35:40', '2024-11-13 02:35:40', NULL),
+	(17, 'superad', '21232f297a57a5a743894a0e4a801fc3', 'Super', 'Admin', 1, '2024-11-25 07:30:34', '2024-11-25 07:30:34', NULL);
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

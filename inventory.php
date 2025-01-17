@@ -350,6 +350,16 @@ $products = $conn->query($sql);
         max-width: 300px;
         flex: 1;
     }
+
+    .total-stock {
+        color: #28a745; /* Green for total stock */
+    }
+    .usable-stock {
+        color: #007bff; /* Blue for usable stock */
+    }
+    .expired-stock {
+        color: #dc3545; /* Red for expired stock */
+    }
 </style>
 
 <body class="g-sidenav-show bg-gray-200">
@@ -420,6 +430,22 @@ $products = $conn->query($sql);
                                     </thead>
                                     <tbody>
                                         <?php while($row = $products->fetch_assoc()): ?>
+                                            <?php
+                                            // Calculate usable and expired stock
+                                            $usable_stock = 0;
+                                            $expired_stock = 0;
+                                            if ($row['batch_details']) {
+                                                $batches = explode('|', $row['batch_details']);
+                                                foreach ($batches as $batch) {
+                                                    list($batchNumber, $quantity, $expiryDate) = explode(':', $batch);
+                                                    if (strtotime($expiryDate) > time()) {
+                                                        $usable_stock += $quantity;
+                                                    } else {
+                                                        $expired_stock += $quantity;
+                                                    }
+                                                }
+                                            }
+                                            ?>
                                             <tr onclick="showProductDetails(<?php echo htmlspecialchars(json_encode($row)); ?>)" style="cursor: pointer;">
                                                 <td class="ps-4"><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['brand_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['generic_name']); ?></span></td>
@@ -427,9 +453,11 @@ $products = $conn->query($sql);
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['dosage']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['unit_of_measure']); ?></span></td>
                                                 <td>
-                                                    <span class="text-xs <?php echo $row['total_stock'] < 10 ? 'stock-warning' : 'stock-ok'; ?>">
-                                                        <?php echo $row['total_stock']; ?>
-                                                    </span>
+                                                    <div class="stock-info">
+                                                        <span class="total-stock">Total: <?php echo $row['total_stock']; ?></span><br>
+                                                        <span class="usable-stock">Usable: <?php echo $usable_stock; ?></span><br>
+                                                        <span class="expired-stock">Expired: <?php echo $expired_stock; ?></span>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <span class="text-xs <?php echo ($row['nearest_expiry'] && strtotime($row['nearest_expiry']) < strtotime('+30 days')) ? 'expiry-warning' : ''; ?>">

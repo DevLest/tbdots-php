@@ -833,8 +833,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         include_once('footer.php');
       ?>
     </div>
-    <div class="modal fade" id="addLaboratoryModal" tabindex="-1" aria-labelledby="addLaboratoryModalLabel"
-      aria-hidden="true">
+    <div class="modal fade" id="addLaboratoryModal" tabindex="-1" aria-labelledby="addLaboratoryModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-xl" style="max-width: 95%; z-index: 9999;">
         <div class="modal-content">
           <div class="modal-header">
@@ -898,7 +897,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                       $dataAttributesString .= ' ' . $key . '="' . htmlspecialchars($value ?? '') . '"';
                                   }
                           ?>
-                                  <option value="<?php echo $patientRow['id']; ?>"<?php echo $dataAttributesString; ?> onclick="populatePatientData(this)">
+                                  <option value="<?php echo $patientRow['id']; ?>"<?php echo $dataAttributesString; ?>">
                                       <?php echo htmlspecialchars($patientRow['fullname']); ?>
                                   </option>
                           <?php 
@@ -1334,6 +1333,74 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
               <button type="submit" class="btn btn-primary">Save Record</button>
             </div>
           </form>
+
+          <script>
+            $(document).ready(function() {
+                
+                // Listen for modal show event
+                $('#addLaboratoryModal').on('show.bs.modal', function () {
+                    
+                    // Add change event listener to patient select
+                    $('#patient_select').on('change', function() {
+                        const selectedOption = this.options[this.selectedIndex];
+                        if (selectedOption) {
+                            populatePatientData(selectedOption);
+                        }
+                    });
+                });
+            });
+
+            function populatePatientData(selectedOption) {
+                if (!selectedOption || !selectedOption.value) {
+                    console.log('No valid option selected');
+                    return;
+                }
+
+                // Show loading state
+                const form = $('#addLaboratoryModal form');
+                form.css('opacity', '0.5').css('pointer-events', 'none');
+                
+                // Use jQuery AJAX for better compatibility
+                $.ajax({
+                    url: 'get_patient_data.php',
+                    method: 'GET',
+                    data: { id: selectedOption.value },
+                    dataType: 'json',
+                    success: function(data) {                        
+                        // Populate fields using jQuery
+                        $('#addLaboratoryModal textarea[name="address"]').val(data.address || '');
+                        $('#addLaboratoryModal input[name="age"]').val(data.age || '');
+                        $('#addLaboratoryModal select[name="sex"]').val(data.gender === '1' || data.gender === 1 ? 'M' : 'F');
+                        $('#addLaboratoryModal input[name="contact"]').val(data.contact || '');
+                        $('#addLaboratoryModal input[name="dob"]').val(data.dob || '');
+                        $('#addLaboratoryModal input[name="height"]').val(data.height || '');
+                        $('#addLaboratoryModal select[name="bcg_scar"]').val(data.bcg_scar || '');
+                        $('#addLaboratoryModal input[name="occupation"]').val(data.occupation || '');
+                        $('#addLaboratoryModal input[name="phil_health_no"]').val(data.phil_health_no || '');
+                        $('#addLaboratoryModal input[name="contact_person"]').val(data.contact_person || '');
+                        $('#addLaboratoryModal input[name="contact_person_no"]').val(data.contact_person_no || '');
+                        $('#addLaboratoryModal input[name="facility_name"]').val(data.location || '');
+
+                        // Set current date for empty date fields
+                        const currentDate = new Date().toISOString().split('T')[0];
+                        ['date_opened', 'treatment_started_date'].forEach(function(fieldName) {
+                            const dateField = $('#addLaboratoryModal input[name="' + fieldName + '"]');
+                            if (dateField.length && !dateField.val()) {
+                                dateField.val(currentDate);
+                            }
+                        });
+
+                        // Restore form interactivity
+                        form.css('opacity', '1').css('pointer-events', 'auto');
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error fetching patient data:', error);
+                        form.css('opacity', '1').css('pointer-events', 'auto');
+                        alert('Error loading patient data. Please try again.');
+                    }
+                });
+            }
+          </script>
         </div>
       </div>
     </div>
@@ -1382,20 +1449,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
       tbody.appendChild(row);
     }
 
-    function openLabModal(patientId, patientName) {
-        // First, select the patient in the dropdown
-        const patientSelect = document.getElementById('patient_select');
-        patientSelect.value = patientId;
-
-        // Manually trigger data population
-        const selectedOption = patientSelect.options[patientSelect.selectedIndex];
-        populatePatientData(selectedOption);
-
-        // Show the modal
-        const modal = new bootstrap.Modal(document.getElementById('addLaboratoryModal'));
-        modal.show();
-    }
-
     function viewLabResults(patientId) {
       // You can either show results in a new modal or redirect to a details page
       window.location.href = `view_lab_results.php?patient_id=${patientId}`;
@@ -1414,83 +1467,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         if (form) {
             form.style.opacity = '1';
             form.style.pointerEvents = 'auto';
-        }
-    }
-
-    function populatePatientData(selectedOption) {
-        if (selectedOption && selectedOption.value) {
-            try {
-                // Basic Information
-                const fields = {
-                    'textarea[name="address"]': 'address',
-                    'input[name="age"]': 'age',
-                    'select[name="sex"]': { attr: 'gender', transform: v => v === '1' ? 'M' : 'F' },
-                    'input[name="contact"]': 'contact',
-                    'input[name="dob"]': 'dob',
-                    'input[name="height"]': 'height',
-                    'select[name="bcg_scar"]': 'bcgScar',
-                    'input[name="occupation"]': 'occupation',
-                    'input[name="phil_health_no"]': 'philHealthNo',
-                    'input[name="contact_person"]': 'contactPerson',
-                    'input[name="contact_person_no"]': 'contactPersonNo',
-                    'input[name="facility_name"]': 'location'
-                };
-
-                // Fetch patient data from server
-                fetch(`get_patient_data.php?id=${selectedOption.value}`)
-                  .then(response => response.json())
-                  .then(data => {
-                      // Populate each field
-                      Object.entries(fields).forEach(([selector, dataKey]) => {
-                          const element = document.querySelector(selector);
-                          if (element) {
-                              if (typeof dataKey === 'object') {
-                                  // Handle transformed values
-                                  element.value = dataKey.transform(data[dataKey.attr]) || '';
-                              } else {
-                                  element.value = data[dataKey] || '';
-                              }
-                          }
-                      });
-                      // Set current date for date fields if empty
-                      const currentDate = new Date().toISOString().split('T')[0];
-                      const dateFields = ['date_opened', 'treatment_started_date'];
-                      dateFields.forEach(fieldName => {
-                          const dateField = document.querySelector(`input[name="${fieldName}"]`);
-                          if (dateField && !dateField.value) {
-                              dateField.value = currentDate;
-                          }
-                      });
-                  })
-                  .catch(error => {
-                      console.error('Error fetching patient data:', error);
-                  });
-
-                // // Populate each field
-                // Object.entries(fields).forEach(([selector, dataKey]) => {
-                //     const element = document.querySelector(selector);
-                //     if (element) {
-                //         if (typeof dataKey === 'object') {
-                //             // Handle transformed values
-                //             element.value = dataKey.transform(selectedOption.dataset[dataKey.attr]) || '';
-                //         } else {
-                //             element.value = selectedOption.dataset[dataKey] || '';
-                //         }
-                //     }
-                // });
-
-                // Set current date for date fields if empty
-                const currentDate = new Date().toISOString().split('T')[0];
-                const dateFields = ['date_opened', 'treatment_started_date'];
-                dateFields.forEach(fieldName => {
-                    const dateField = document.querySelector(`input[name="${fieldName}"]`);
-                    if (dateField && !dateField.value) {
-                        dateField.value = currentDate;
-                    }
-                });
-            } catch (error) {
-                console.error('Error populating patient data:', error);
-            }
         }
     }
 
@@ -1524,26 +1500,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             showAlert('Error updating laboratory record: ' + error.message, 'danger');
         });
     }
-
-    // Add both event listeners for the patient select
-    document.addEventListener('DOMContentLoaded', function() {
-        const patientSelect = document.getElementById('patient_select');
-        if (patientSelect) {
-            // Handle change event
-            patientSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                populatePatientData(selectedOption);
-            });
-
-            // Handle focus event (backup in case change doesn't fire)
-            patientSelect.addEventListener('focus', function() {
-                if (this.value) {
-                    const selectedOption = this.options[this.selectedIndex];
-                    populatePatientData(selectedOption);
-                }
-            });
-        }
-    });
 
     function viewTreatmentCard(id) {
         // Show loading state
@@ -1663,8 +1619,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         }
 
                         // Household Members
-                        
-                        console.log('Populating household members:', data.household_members);
                         const tbody = document.getElementById('householdMembersTable');
                         while (tbody.firstChild) {
                           tbody.removeChild(tbody.firstChild);
