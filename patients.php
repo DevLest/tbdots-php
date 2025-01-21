@@ -1056,7 +1056,7 @@ $physicians = $conn->query($physicianssql);
 
     <!-- Patient Details Modal -->
     <div class='modal fade' id='patientDetailsModal' tabindex='-1' aria-labelledby='patientDetailsModalLabel' aria-hidden='true'>
-      <div class='modal-dialog'>
+      <div class='modal-dialog modal-lg'>
         <div class='modal-content'>
           <div class='modal-header'>
             <h5 class='modal-title' id='patientDetailsModalLabel'>Patient Details</h5>
@@ -1404,80 +1404,88 @@ $physicians = $conn->query($physicianssql);
           .then(data => {
             if (data.success) {
               const patient = data.data;
-              const content = `
-                <div class="patient-details">
-                  <div class="details-section">
-                    <h6 class="section-title">Personal Information</h6>
-                    <div class="details-grid">
-                      <div class="detail-item">
-                        <label>Name:</label>
-                        <span>${patient.fullname}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Age:</label>
-                        <span>${patient.age}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Gender:</label>
-                        <span>${patient.gender == 1 ? 'Male' : 'Female'}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Date of Birth:</label>
-                        <span>${patient.dob || 'N/A'}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Height:</label>
-                        <span>${patient.height ? patient.height + ' cm' : 'N/A'}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Occupation:</label>
-                        <span>${patient.occupation || 'N/A'}</span>
-                      </div>
-                    </div>
+              const transactions = data.transactions || [];
+              
+              let content = `
+                <div class="row mb-4">
+                  <div class="col-md-6">
+                    <h6 class="text-sm font-weight-bold mb-3">Personal Information</h6>
+                    <p class="text-sm mb-2"><strong>Name:</strong> ${patient.fullname || 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>Age:</strong> ${patient.age || 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>Gender:</strong> ${patient.gender == 1 ? 'Male' : 'Female'}</p>
+                    <p class="text-sm mb-2"><strong>Contact:</strong> ${patient.contact || 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>Address:</strong> ${patient.address || 'N/A'}</p>
                   </div>
+                  <div class="col-md-6">
+                    <h6 class="text-sm font-weight-bold mb-3">Medical Information</h6>
+                    <p class="text-sm mb-2"><strong>Height:</strong> ${patient.height ? patient.height + ' cm' : 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>Date of Birth:</strong> ${patient.dob || 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>PhilHealth No:</strong> ${patient.phil_health_no || 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>Emergency Contact:</strong> ${patient.contact_person || 'N/A'}</p>
+                    <p class="text-sm mb-2"><strong>Emergency Contact No:</strong> ${patient.contact_person_no || 'N/A'}</p>
+                  </div>
+                </div>`;
 
-                  <div class="details-section">
-                    <h6 class="section-title">Contact Information</h6>
-                    <div class="details-grid">
-                      <div class="detail-item">
-                        <label>Contact Number:</label>
-                        <span>${patient.contact || 'N/A'}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>PhilHealth Number:</label>
-                        <span>${patient.phil_health_no || 'N/A'}</span>
-                      </div>
-                    </div>
-                  </div>
+                // Add Inventory Transaction History section
+                content += `
+                  <div class="row">
+                    <div class="col-12">
+                      <h6 class="text-sm font-weight-bold mb-3">Inventory Transaction History</h6>
+                      <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                          <thead>
+                            <tr>
+                              <th class="text-xs">Date</th>
+                              <th class="text-xs">Type</th>
+                              <th class="text-xs">Product</th>
+                              <th class="text-xs">Quantity</th>
+                              <th class="text-xs">Batch Number</th>
+                              <th class="text-xs">Notes</th>
+                              <th class="text-xs">Staff</th>
+                            </tr>
+                          </thead>
+                          <tbody>`;
 
-                  <div class="details-section">
-                    <h6 class="section-title">Emergency Contact</h6>
-                    <div class="details-grid">
-                      <div class="detail-item">
-                        <label>Contact Person:</label>
-                        <span>${patient.contact_person || 'N/A'}</span>
-                      </div>
-                      <div class="detail-item">
-                        <label>Contact Number:</label>
-                        <span>${patient.contact_person_no || 'N/A'}</span>
+                if (transactions.length > 0) {
+                  transactions.forEach(trans => {
+                    content += `
+                      <tr>
+                        <td class="text-xs">${trans.transaction_date}</td>
+                        <td class="text-xs">${trans.type}</td>
+                        <td class="text-xs">${trans.brand_name} (${trans.generic_name})</td>
+                        <td class="text-xs">${trans.quantity} ${trans.unit_of_measure}</td>
+                        <td class="text-xs">${trans.batch_number || 'N/A'}</td>
+                        <td class="text-xs">${trans.notes || 'N/A'}</td>
+                        <td class="text-xs">${trans.staff_name}</td>
+                      </tr>`;
+                  });
+                } else {
+                  content += `
+                    <tr>
+                      <td colspan="7" class="text-center text-xs">No transaction history found</td>
+                    </tr>`;
+                }
+
+                content += `
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-                  </div>
-                </div>
-              `;
-              document.getElementById('patientDetailsContent').innerHTML = content;
-              const modal = new bootstrap.Modal(document.getElementById('patientDetailsModal'));
-              modal.show();
-            }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('patientDetailsContent').innerHTML = `
-              <div class='alert alert-danger'>
-                Error loading patient details: ${error.message}
-              </div>
-            `;
-          });
+                  </div>`;
+
+                document.getElementById('patientDetailsContent').innerHTML = content;
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              document.getElementById('patientDetailsContent').innerHTML = `
+                <div class="alert alert-danger">
+                  Error loading patient details: ${error.message}
+                </div>`;
+            });
+
+          const modal = new bootstrap.Modal(document.getElementById('patientDetailsModal'));
+          modal.show();
       }
 
       // Add this function to calculate age from date of birth

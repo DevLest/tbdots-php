@@ -258,6 +258,8 @@ $users = $conn->query($sql);
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <script src="../assets/js/material-dashboard.min.js?v=3.1.0"></script>
   <script>
+    var user_id = <?php echo $_SESSION['user_id']; ?>;
+    var role = <?php echo $_SESSION['role_id']; ?>;
     var modal = new bootstrap.Modal(document.getElementById('exampleModal'))
     document.getElementById('openModalButton').addEventListener('click', function () {
       modal.show()
@@ -284,6 +286,7 @@ $users = $conn->query($sql);
     }
 
     function viewPatients(physicianId) {
+      if(role == 1 || user_id == physicianId){
         fetch(`get_physician_patients.php?physician_id=${physicianId}`)
             .then(response => response.json())
             .then(data => {
@@ -305,6 +308,7 @@ $users = $conn->query($sql);
                 
                 new bootstrap.Modal(document.getElementById('viewPatientsModal')).show();
             });
+          }
     }
   </script>
 </body>
