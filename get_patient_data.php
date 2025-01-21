@@ -10,7 +10,14 @@ if (!$id) {
 }
 
 try {
-    $sql = "SELECT * FROM patients WHERE id = ?";
+    $sql = "SELECT p.*, 
+            CONCAT(b.name, ', ', m.location) as address 
+            FROM patients p 
+            LEFT JOIN locations l ON p.location_id = l.id 
+            LEFT JOIN municipalities m ON l.municipality_id = m.id 
+            LEFT JOIN barangays b ON l.barangay_id = b.id 
+            WHERE p.id = ?";
+            
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('i', $id);
     $stmt->execute();

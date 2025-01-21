@@ -862,7 +862,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="col-md-4">
                       <div class="form-group mb-2">
                         <label>Region/Province</label>
-                        <input type="text" class="form-control" name="region_province">
+                        <input type="text" class="form-control" name="region_province" value="Negros Occidental">
                       </div>
                     </div>
                   </div>
