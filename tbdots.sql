@@ -16,7 +16,7 @@
 
 
 -- Dumping database structure for tbdots
-CREATE DATABASE IF NOT EXISTS `tbdots` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+CREATE DATABASE IF NOT EXISTS `tbdots` /*!40100 DEFAULT CHARACTER SET utf8mb4 */ /*!80016 DEFAULT ENCRYPTION='N' */;
 USE `tbdots`;
 
 -- Dumping structure for table tbdots.activity_logs
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
   PRIMARY KEY (`id`),
   KEY `FK_logs_user` (`user_id`),
   CONSTRAINT `FK_logs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=56 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=56 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.activity_logs: ~44 rows (approximately)
 INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, `details`, `created_at`) VALUES
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS `barangays` (
   PRIMARY KEY (`id`),
   KEY `municipality_id` (`municipality_id`),
   CONSTRAINT `barangays_ibfk_1` FOREIGN KEY (`municipality_id`) REFERENCES `municipalities` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=118 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=118 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.barangays: ~117 rows (approximately)
 INSERT INTO `barangays` (`id`, `name`, `municipality_id`, `created_at`, `updated_at`) VALUES
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS `clinical_examinations` (
   PRIMARY KEY (`id`),
   KEY `FK_clinical_lab_results` (`lab_results_id`),
   CONSTRAINT `FK_clinical_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.clinical_examinations: ~0 rows (approximately)
 
@@ -265,7 +265,7 @@ CREATE TABLE IF NOT EXISTS `drug_administrations` (
   PRIMARY KEY (`id`),
   KEY `FK_drug_lab_results` (`lab_results_id`),
   CONSTRAINT `FK_drug_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.drug_administrations: ~0 rows (approximately)
 
@@ -289,7 +289,7 @@ CREATE TABLE IF NOT EXISTS `drug_dosages` (
   PRIMARY KEY (`id`),
   KEY `lab_results_id` (`lab_results_id`),
   CONSTRAINT `drug_dosages_ibfk_1` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.drug_dosages: ~28 rows (approximately)
 INSERT INTO `drug_dosages` (`id`, `lab_results_id`, `drug_name`, `month_1`, `month_2`, `month_3`, `month_4`, `month_5`, `month_6`, `month_7`, `month_8`, `month_9`, `month_10`, `month_11`, `month_12`) VALUES
@@ -332,7 +332,7 @@ CREATE TABLE IF NOT EXISTS `drug_histories` (
   PRIMARY KEY (`id`),
   KEY `FK_history_treatment` (`lab_results_id`),
   CONSTRAINT `FK_history_treatment` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.drug_histories: ~6 rows (approximately)
 INSERT INTO `drug_histories` (`id`, `lab_results_id`, `has_history`, `duration`, `drugs_taken`) VALUES
@@ -355,7 +355,7 @@ CREATE TABLE IF NOT EXISTS `drug_prescriptions` (
   PRIMARY KEY (`id`),
   KEY `FK_prescription_treatment` (`lab_results_id`),
   CONSTRAINT `FK_prescription_treatment` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.drug_prescriptions: ~0 rows (approximately)
 
@@ -370,7 +370,7 @@ CREATE TABLE IF NOT EXISTS `dssm_results` (
   PRIMARY KEY (`id`),
   KEY `lab_results_id` (`lab_results_id`),
   CONSTRAINT `dssm_results_ibfk_1` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.dssm_results: ~0 rows (approximately)
 
@@ -384,7 +384,7 @@ CREATE TABLE IF NOT EXISTS `household_members` (
   PRIMARY KEY (`id`),
   KEY `FK_household_treatment` (`lab_results_id`) USING BTREE,
   CONSTRAINT `FK_household_treatment` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.household_members: ~0 rows (approximately)
 
@@ -399,7 +399,7 @@ CREATE TABLE IF NOT EXISTS `inventory` (
   PRIMARY KEY (`id`),
   KEY `product_id` (`product_id`),
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.inventory: ~15 rows (approximately)
 INSERT INTO `inventory` (`id`, `product_id`, `quantity`, `expiration_date`, `batch_number`, `created_at`) VALUES
@@ -439,7 +439,7 @@ CREATE TABLE IF NOT EXISTS `inventory_transactions` (
   CONSTRAINT `inventory_transactions_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
   CONSTRAINT `inventory_transactions_ibfk_2` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`),
   CONSTRAINT `inventory_transactions_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.inventory_transactions: ~0 rows (approximately)
 INSERT INTO `inventory_transactions` (`id`, `type`, `product_id`, `quantity`, `batch_number`, `patient_id`, `notes`, `transaction_date`, `user_id`) VALUES
@@ -451,7 +451,7 @@ INSERT INTO `inventory_transactions` (`id`, `type`, `product_id`, `quantity`, `b
 -- Dumping structure for table tbdots.lab_results
 CREATE TABLE IF NOT EXISTS `lab_results` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `case_number` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `case_number` text CHARACTER SET utf8mb4 NOT NULL,
   `date_opened` date DEFAULT NULL,
   `region_province` varchar(100) DEFAULT NULL,
   `facility_name` varchar(100) DEFAULT NULL,
@@ -508,7 +508,7 @@ CREATE TABLE IF NOT EXISTS `lab_results` (
   KEY `FK_treatment_physician` (`physician_id`),
   CONSTRAINT `FK_treatment_patient` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`),
   CONSTRAINT `FK_treatment_physician` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.lab_results: ~7 rows (approximately)
 INSERT INTO `lab_results` (`id`, `case_number`, `date_opened`, `region_province`, `facility_name`, `patient_id`, `physician_id`, `source_of_patient`, `bacteriological_status`, `tb_classification`, `diagnosis`, `registration_group`, `treatment_regimen`, `treatment_started_date`, `treatment_outcome`, `treatment_outcome_date`, `created_at`, `updated_at`, `tst_result`, `cxr_findings`, `other_exam`, `other_exam_date`, `tbdc`, `dssm_due_date_0`, `dssm_due_date_1`, `dssm_due_date_2`, `dssm_due_date_3`, `dssm_due_date_4`, `dssm_due_date_5`, `dssm_due_date_6`, `dssm_due_date_7`, `dssm_exam_date_0`, `dssm_exam_date_1`, `dssm_exam_date_2`, `dssm_exam_date_3`, `dssm_exam_date_4`, `dssm_exam_date_5`, `dssm_exam_date_6`, `dssm_exam_date_7`, `dssm_result_0`, `dssm_result_1`, `dssm_result_2`, `dssm_result_3`, `dssm_result_4`, `dssm_result_5`, `dssm_result_6`, `dssm_result_7`, `bcg_scar`, `height`, `occupation`, `phil_health_no`, `contact_person`, `contact_number`) VALUES
@@ -532,7 +532,7 @@ CREATE TABLE IF NOT EXISTS `locations` (
   KEY `barangay_id` (`barangay_id`),
   CONSTRAINT `locations_ibfk_1` FOREIGN KEY (`municipality_id`) REFERENCES `municipalities` (`id`),
   CONSTRAINT `locations_ibfk_2` FOREIGN KEY (`barangay_id`) REFERENCES `barangays` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=118 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=118 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.locations: ~117 rows (approximately)
 INSERT INTO `locations` (`id`, `municipality_id`, `barangay_id`, `created_at`, `updated_at`) VALUES
@@ -659,7 +659,7 @@ CREATE TABLE IF NOT EXISTS `modules` (
   `id` int NOT NULL AUTO_INCREMENT,
   `module` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.modules: ~25 rows (approximately)
 INSERT INTO `modules` (`id`, `module`) VALUES
@@ -697,7 +697,7 @@ CREATE TABLE IF NOT EXISTS `municipalities` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.municipalities: ~6 rows (approximately)
 INSERT INTO `municipalities` (`id`, `location`, `contact`, `updated_at`, `created_at`) VALUES
@@ -737,7 +737,7 @@ CREATE TABLE IF NOT EXISTS `patients` (
   CONSTRAINT `FK_patients_lab_results` FOREIGN KEY (`lab_results_id`) REFERENCES `lab_results` (`id`),
   CONSTRAINT `FK_patients_locations` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`),
   CONSTRAINT `FK_patients_users` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.patients: ~6 rows (approximately)
 INSERT INTO `patients` (`id`, `fullname`, `age`, `gender`, `contact`, `address`, `physician_id`, `location_id`, `lab_results_id`, `updated_at`, `created_at`, `height`, `dob`, `bcg_scar`, `occupation`, `phil_health_no`, `contact_person`, `contact_person_no`) VALUES
@@ -764,7 +764,7 @@ CREATE TABLE IF NOT EXISTS `patient_logbook` (
   CONSTRAINT `FK_logbook_patient` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE,
   CONSTRAINT `FK_logbook_physician` FOREIGN KEY (`physician_id`) REFERENCES `users` (`id`),
   CONSTRAINT `FK_patient_logbook_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.patient_logbook: ~0 rows (approximately)
 
@@ -778,7 +778,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `unit_of_measure` varchar(50) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.products: ~2 rows (approximately)
 INSERT INTO `products` (`id`, `brand_name`, `generic_name`, `uses`, `dosage`, `unit_of_measure`, `created_at`) VALUES
@@ -789,11 +789,11 @@ INSERT INTO `products` (`id`, `brand_name`, `generic_name`, `uses`, `dosage`, `u
 CREATE TABLE IF NOT EXISTS `roles` (
   `id` int NOT NULL AUTO_INCREMENT,
   `description` varchar(50) NOT NULL DEFAULT '0',
-  `module` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `module` text CHARACTER SET utf8mb4 NOT NULL,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.roles: ~4 rows (approximately)
 INSERT INTO `roles` (`id`, `description`, `module`, `updated_at`, `created_at`) VALUES
@@ -809,7 +809,7 @@ CREATE TABLE IF NOT EXISTS `test_lists` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.test_lists: ~6 rows (approximately)
 INSERT INTO `test_lists` (`id`, `name`, `updated_at`, `created_at`) VALUES
@@ -837,7 +837,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   KEY `location_id` (`location_id`),
   CONSTRAINT `FK_users_roles` FOREIGN KEY (`role`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 ;
 
 -- Dumping data for table tbdots.users: ~6 rows (approximately)
 INSERT INTO `users` (`id`, `username`, `password`, `first_name`, `last_name`, `role`, `updated_at`, `created_at`, `location_id`) VALUES
