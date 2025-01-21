@@ -246,24 +246,16 @@ $treatmentOutcomesQuery = "
         DATE_FORMAT(l.treatment_outcome_date, '%b') as month,
         DATE_FORMAT(l.treatment_outcome_date, '%Y-%m') as month_year,
         COUNT(*) as count
-    FROM (
-        SELECT 
-            patient_id,
-            treatment_outcome,
-            treatment_outcome_date,
-            ROW_NUMBER() OVER (PARTITION BY patient_id ORDER BY case_number DESC) as rn
-        FROM lab_results
-        WHERE treatment_outcome IS NOT NULL
-    ) l
+    FROM lab_results l
     JOIN patients p ON l.patient_id = p.id
     JOIN locations loc ON p.location_id = loc.id
     JOIN municipalities m ON loc.municipality_id = m.id
     JOIN barangays b ON loc.barangay_id = b.id
-    WHERE l.rn = 1  -- Only get the most recent case for each patient
+    WHERE l.treatment_outcome IS NOT NULL
     AND l.treatment_outcome_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
     $filterConditions
     GROUP BY 
-        l.treatment_outcome, 
+        l.treatment_outcome,
         DATE_FORMAT(l.treatment_outcome_date, '%b'),
         DATE_FORMAT(l.treatment_outcome_date, '%Y-%m')
     ORDER BY month_year ASC";

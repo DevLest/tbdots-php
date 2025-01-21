@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once('connection.php');
+require_once "connection/db.php";
 
 // Check if user is logged in and has physician role
-if (!isset($_SESSION['user_id']) || !in_array(3, $_SESSION['role_modules'])) {
+if (!isset($_SESSION['user_id']) || !in_array(23, $_SESSION['module'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit;
 }

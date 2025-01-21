@@ -894,11 +894,10 @@ $physicians = $conn->query($physicianssql);
                                   <button onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
                                     <i class='fa fa-flask text-xs'></i> Lab Results
                                   </button>" : "") . "
-                                  " . ($_SESSION['role_id'] == 3 ? "
                                     <button onclick='addLogbookEntry(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
                                       <i class='fa fa-book text-xs'></i> Add Log
-                                    </button>" : "") . "
-                                  " . (in_array(11, $_SESSION['module']) ? "
+                                    </button>" .
+                                    (in_array(11, $_SESSION['module']) ? "
                                     <button onclick='editPatient(".$row["id"].", ".json_encode($row).")' class='btn btn-link text-secondary mb-0'>
                                       <i class='fa fa-edit text-xs'></i> Edit
                                     </button>" : "") . "
@@ -1075,10 +1074,35 @@ $physicians = $conn->query($physicianssql);
 
     <!-- Logbook Modal -->
     <div class="modal fade" id="logbookModal" tabindex="-1" aria-labelledby="logbookModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="logbookModalLabel">Patient Logbook</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="d-flex justify-content-end mb-3">
+              <button type="button" class="btn btn-primary" onclick="openAddLogModal()">
+                <i class="fas fa-plus"></i> Add New Log
+              </button>
+            </div>
+            <div id="logbookList">
+              <!-- Logs will be loaded here dynamically -->
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add a new modal for adding logs -->
+    <div class="modal fade" id="addLogModal" tabindex="-1" aria-labelledby="addLogModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="logbookModalLabel">Add Logbook Entry</h5>
+            <h5 class="modal-title" id="addLogModalLabel">Add New Log Entry</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <form id="logbookForm">
@@ -1481,16 +1505,59 @@ $physicians = $conn->query($physicianssql);
       });
 
       function addLogbookEntry(patientId, patientName) {
-        document.getElementById('logbook_patient_id').value = patientId;
-        document.getElementById('logbookModalLabel').textContent = `Add Logbook Entry for ${patientName}`;
-        document.getElementById('log_date').value = new Date().toISOString().split('T')[0];
-        document.getElementById('notes').value = '';
+        // Store patient ID in a data attribute on the logbook modal
+        document.getElementById('logbookModal').setAttribute('data-patient-id', patientId);
+        document.getElementById('logbookModalLabel').textContent = `Logbook for ${patientName}`;
         
+        // Load existing logs
+        loadLogbookEntries(patientId);
+        
+        // Show the logbook modal
         const modal = new bootstrap.Modal(document.getElementById('logbookModal'));
         modal.show();
       }
 
-      // Add form submission handler
+      function loadLogbookEntries(patientId) {
+        fetch(`get_logbook_entries.php?patient_id=${patientId}`)
+          .then(response => response.json())
+          .then(data => {
+            const logbookList = document.getElementById('logbookList');
+            if (data.success && data.entries.length > 0) {
+              const entriesHTML = data.entries.map(entry => `
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <h6 class="card-subtitle text-muted">${entry.log_date}</h6>
+                      <small class="text-muted">Added by: ${entry.added_by}</small>
+                    </div>
+                    <p class="card-text">${entry.notes}</p>
+                  </div>
+                </div>
+              `).join('');
+              logbookList.innerHTML = entriesHTML;
+            } else {
+              logbookList.innerHTML = '<div class="alert alert-info">No logbook entries found.</div>';
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('logbookList').innerHTML = '<div class="alert alert-danger">Error loading logbook entries.</div>';
+          });
+      }
+
+      function openAddLogModal() {
+        const patientId = document.getElementById('logbookModal').getAttribute('data-patient-id');
+        document.getElementById('logbook_patient_id').value = patientId;
+        document.getElementById('log_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('notes').value = '';
+        
+        // Hide logbook modal and show add log modal
+        bootstrap.Modal.getInstance(document.getElementById('logbookModal')).hide();
+        const addLogModal = new bootstrap.Modal(document.getElementById('addLogModal'));
+        addLogModal.show();
+      }
+
+      // Update form submission handler
       document.getElementById('logbookForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -1504,7 +1571,14 @@ $physicians = $conn->query($physicianssql);
         .then(data => {
           if (data.success) {
             alert('Logbook entry saved successfully');
-            bootstrap.Modal.getInstance(document.getElementById('logbookModal')).hide();
+            
+            // Hide add log modal
+            bootstrap.Modal.getInstance(document.getElementById('addLogModal')).hide();
+            
+            // Show logbook modal and refresh entries
+            const logbookModal = new bootstrap.Modal(document.getElementById('logbookModal'));
+            logbookModal.show();
+            loadLogbookEntries(formData.get('patient_id'));
           } else {
             alert('Error saving logbook entry: ' + data.message);
           }

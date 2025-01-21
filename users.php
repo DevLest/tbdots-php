@@ -108,11 +108,10 @@ $users = $conn->query($sql);
 $rolesQuery = "SELECT * FROM roles";
 $userRoles = $conn->query($rolesQuery);
 
-$locationsQuery = "SELECT locations.id, municipalities.location as municipality, barangays.name as barangay 
-                  FROM locations 
-                  INNER JOIN municipalities ON locations.municipality_id = municipalities.id 
-                  INNER JOIN barangays ON locations.barangay_id = barangays.id 
-                  ORDER BY municipalities.location, barangays.name";
+$locationsQuery = "SELECT DISTINCT m.id, m.location as municipality 
+                  FROM municipalities m 
+                  INNER JOIN locations l ON l.municipality_id = m.id 
+                  ORDER BY m.location";
 $locations = $conn->query($locationsQuery);
 ?>
 
@@ -240,7 +239,7 @@ $locations = $conn->query($locationsQuery);
                     <option value="">Select Location</option>
                     <?php foreach($locations as $location): ?>
                       <option value="<?php echo $location['id']; ?>">
-                        <?php echo $location['barangay'] . ', ' . $location['municipality']; ?>
+                        <?php echo $location['municipality']; ?>
                       </option>
                     <?php endforeach; ?>
                   </select>

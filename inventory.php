@@ -641,11 +641,24 @@ $products = $conn->query($sql);
                                                         <?php 
                                                         $products->data_seek(0);
                                                         while($row = $products->fetch_assoc()): 
+                                                            $usable_stock = 0;
+                                                            $expired_stock = 0;
+                                                            if ($row['batch_details']) {
+                                                                $batches = explode('|', $row['batch_details']);
+                                                                foreach ($batches as $batch) {
+                                                                    list($batchNumber, $quantity, $expiryDate) = explode(':', $batch);
+                                                                    if (strtotime($expiryDate) > time()) {
+                                                                        $usable_stock += $quantity;
+                                                                    } else {
+                                                                        $expired_stock += $quantity;
+                                                                    }
+                                                                }
+                                                            }
                                                         ?>
                                                             <option value="<?php echo $row['id']; ?>" 
-                                                                    data-stock="<?php echo $row['total_stock']; ?>">
+                                                                    data-stock="<?php echo $usable_stock; ?>">
                                                                 <?php echo htmlspecialchars($row['brand_name']); ?> 
-                                                                (Available: <?php echo $row['total_stock']; ?>)
+                                                                (Available: <?php echo $usable_stock; ?>)
                                                             </option>
                                                         <?php endwhile; ?>
                                                     </select>
