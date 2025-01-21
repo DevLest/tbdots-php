@@ -22,12 +22,15 @@ try {
     // Main query
     $sql = "SELECT 
         l.*,
-        p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
-        p.height,  
-        p.contact_person_no,
-        dh.has_history, dh.duration, dh.drugs_taken
+        p.fullname, p.gender as sex, p.age, p.bcg_scar,
+        p.height,
+        dh.has_history, dh.duration, dh.drugs_taken,
+        CONCAT(b.name, ', ', m.location) as address
         FROM lab_results l 
-        LEFT JOIN patients p ON l.patient_id = p.id 
+        LEFT JOIN patients p ON l.patient_id = p.id
+        LEFT JOIN locations loc ON p.location_id = loc.id
+        LEFT JOIN municipalities m ON loc.municipality_id = m.id
+        LEFT JOIN barangays b ON loc.barangay_id = b.id
         LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
         WHERE l.id = ? 
         ORDER BY l.created_at DESC";

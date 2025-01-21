@@ -934,7 +934,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                       </div>
                       <div class="form-group mb-2">
                         <label>Complete Address</label>
-                        <textarea class="form-control" name="address" rows="2"></textarea>
+                        <textarea class="form-control" name="address" rows="2" readonly></textarea>
                       </div>
                     </div>
                     <div class="col-md-6">
@@ -942,13 +942,13 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="col-6">
                           <div class="form-group mb-2">
                             <label>Date of Birth</label>
-                            <input type="date" class="form-control" name="dob">
+                            <input type="date" class="form-control" name="dob" readonly>
                           </div>
                         </div>
                         <div class="col-6">
                           <div class="form-group mb-2">
                             <label>Age</label>
-                            <input type="number" class="form-control" name="age">
+                            <input type="number" class="form-control" name="age" readonly>
                           </div>
                         </div>
                       </div>
@@ -956,7 +956,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="col-6">
                           <div class="form-group mb-2">
                             <label>Sex</label>
-                            <select class="form-control" name="sex">
+                            <select class="form-control" name="sex" disabled>
                               <option value="M">Male</option>
                               <option value="F">Female</option>
                             </select>
@@ -1574,7 +1574,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         $('input[name="occupation"]').val(data.occupation);
                         $('input[name="phil_health_no"]').val(data.phil_health_no);
                         $('input[name="contact_person"]').val(data.contact_person);
-                        $('input[name="contact_person_no"]').val(data.contact_number);
+                        $('input[name="contact_number"]').val(data.contact_number);
                         $('select[name="bcg_scar"]').val(data.bcg_scar);
                         
                         // Diagnostic Tests
