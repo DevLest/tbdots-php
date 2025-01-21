@@ -23,13 +23,14 @@ try {
     $sql = "SELECT 
         l.*,
         p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
-        p.height, p.occupation, p.phil_health_no, p.contact_person, 
-        p.contact_person_no as contact_number,
+        p.height,  
+        p.contact_person_no,
         dh.has_history, dh.duration, dh.drugs_taken
         FROM lab_results l 
         LEFT JOIN patients p ON l.patient_id = p.id 
         LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
-        WHERE l.id = ?";
+        WHERE l.id = ? 
+        ORDER BY l.created_at DESC";
             
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $_GET['id']);

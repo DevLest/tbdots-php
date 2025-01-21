@@ -1127,6 +1127,9 @@ $physicians = $conn->query($physicianssql);
     </div>
 
     <script>
+
+      var role_id = <?php echo $_SESSION['role_id']; ?>;
+      var module_id = <?php echo json_encode($_SESSION['module']); ?>;
       // Add Patient Modal Functions
       function openAddModal() {
         // Reset the form
@@ -1568,6 +1571,11 @@ $physicians = $conn->query($physicianssql);
       // Update form submission handler
       document.getElementById('logbookForm').addEventListener('submit', function(e) {
         e.preventDefault();
+
+        if (role_id !== 1 && Array.isArray(module_id) && module_id.includes(23)) {
+          alert('You are not authorized to add logbook entries.');
+          return;
+        }
         
         const formData = new FormData(this);
         

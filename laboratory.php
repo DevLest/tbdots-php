@@ -114,11 +114,15 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 treatment_regimen = ?,
                 treatment_started_date = ?,
                 treatment_outcome = ?,
-                treatment_outcome_date = ?
+                treatment_outcome_date = ?,
+                phil_health_no = ?,
+                occupation = ?,
+                contact_number = ?,
+                contact_person = ?
                 WHERE case_number = ?";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sssssssssssss", 
+            $stmt->bind_param("sssssssssssssssss", 
                 $_POST['date_opened'],
                 $_POST['region_province'],
                 $_POST['facility_name'],
@@ -131,6 +135,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_POST['treatment_started_date'],
                 $_POST['treatment_outcome'],
                 $_POST['treatment_outcome_date'],
+                $_POST['phil_health_no'],
+                $_POST['occupation'],
+                $_POST['contact_number'],
+                $_POST['contact_person'],
                 $_POST['case_number']
             );
             
@@ -207,8 +215,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             treatment_outcome_date,
             other_exam,
             other_exam_date,
+            phil_health_no,
+            occupation,
+            contact_number,
+            contact_person,
             tbdc
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $conn->prepare($sql);
         
@@ -224,6 +236,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         $treatment_outcome_date = !empty($_POST['treatment_outcome_date']) ? $_POST['treatment_outcome_date'] : null;
         $other_exam = !empty($_POST['other_exam']) ? $_POST['other_exam'] : null;
         $other_exam_date = !empty($_POST['other_exam_date']) ? $_POST['other_exam_date'] : null;
+        $phil_health_no = !empty($_POST['phil_health_no']) ? $_POST['phil_health_no'] : null;
+        $occupation = !empty($_POST['occupation']) ? $_POST['occupation'] : null;
+        $contact_number = !empty($_POST['contact_number']) ? $_POST['contact_number'] : null;
+        $contact_person = !empty($_POST['contact_person']) ? $_POST['contact_person'] : null;
         $tbdc = !empty($_POST['tbdc']) ? $_POST['tbdc'] : null;
         
         // Add validation for bacteriological_status
@@ -289,7 +305,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             $treatment_started_date = date('Y-m-d');
         }
         
-        $bind_result = $stmt->bind_param("ssssissssssssssssss", 
+        $bind_result = $stmt->bind_param("ssssissssssssssssssssss", 
             $_POST['case_number'],
             $_POST['date_opened'],
             $_POST['region_province'],
@@ -299,15 +315,19 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             $tst_result,
             $cxr_findings,
             $bacteriological_status,
-            $tb_classification,  // Use the validated value
-            $diagnosis,  // Use the validated value
+            $tb_classification,
+            $diagnosis,
             $_POST['registration_group'],
             $_POST['treatment_regimen'],
-            $treatment_started_date,  // Use the validated value
+            $treatment_started_date,
             $treatment_outcome,
             $treatment_outcome_date,
             $other_exam,
             $other_exam_date,
+            $phil_health_no,
+            $occupation,
+            $contact_number,
+            $contact_person,
             $tbdc
         );
         
@@ -336,6 +356,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
             'treatment_outcome_date' => $treatment_outcome_date,
             'other_exam' => $other_exam,
             'other_exam_date' => $other_exam_date,
+            'phil_health_no' => $phil_health_no,
+            'occupation' => $occupation,
+            'contact_number' => $contact_number,
+            'contact_person' => $contact_person,
             'tbdc' => $tbdc
         ]));
         

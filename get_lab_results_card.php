@@ -21,7 +21,7 @@ try {
 
     // Main query
     $sql = "SELECT 
-        l.*,
+        l.*, l.occupation, l.phil_health_no, l.contact_number, l.contact_person,
         p.fullname, p.gender as sex, p.age, p.address, p.bcg_scar,
         p.height, p.occupation, p.phil_health_no, p.contact_person, 
         p.contact_person_no as contact_number,
@@ -29,7 +29,10 @@ try {
         FROM lab_results l 
         LEFT JOIN patients p ON l.patient_id = p.id 
         LEFT JOIN drug_histories dh ON l.id = dh.lab_results_id
-        WHERE p.id = ?";
+        WHERE p.id = ?
+        ORDER BY l.created_at DESC";
+
+    debug_log("SQL Query: " . $sql);
             
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $_GET['id']);

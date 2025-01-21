@@ -268,14 +268,13 @@ $locations = $conn->query($locationsQuery);
 
     function editUser(id, username, first_name, last_name, role, location_id){
       var modal = new bootstrap.Modal(document.getElementById('addUserModal'))
-      console.log(location_id)
       document.getElementById('id').value = id;
       document.getElementById('username').value = username;
       document.getElementById('first_name').value = first_name;
       document.getElementById('last_name').value = last_name;
       document.getElementById('role').value = role;
       document.getElementById('location_id').value = location_id || '';
-      document.getElementById('password').readOnly = true;
+      // document.getElementById('password').readOnly = true;
       document.getElementById('form-button').innerHTML = "Save Changes";
       modal.show()
     }
