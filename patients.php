@@ -895,7 +895,7 @@ $physicians = $conn->query($physicianssql);
                                     <i class='fa fa-flask text-xs'></i> Lab Results
                                   </button>" : "") . "
                                     <button onclick='addLogbookEntry(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
-                                      <i class='fa fa-book text-xs'></i> Add Log
+                                      <i class='fa fa-book text-xs'></i> Open Logbook
                                     </button>" .
                                     (in_array(11, $_SESSION['module']) ? "
                                     <button onclick='editPatient(".$row["id"].", ".json_encode($row).")' class='btn btn-link text-secondary mb-0'>
@@ -1082,9 +1082,11 @@ $physicians = $conn->query($physicianssql);
           </div>
           <div class="modal-body">
             <div class="d-flex justify-content-end mb-3">
-              <button type="button" class="btn btn-primary" onclick="openAddLogModal()">
-                <i class="fas fa-plus"></i> Add New Log
-              </button>
+              <?php if (in_array(23, $_SESSION['module'])): ?>
+                <button type="button" class="btn btn-primary" onclick="openAddLogModal()">
+                  <i class="fas fa-plus"></i> Add New Log
+                </button>
+              <?php endif; ?>
             </div>
             <div id="logbookList">
               <!-- Logs will be loaded here dynamically -->
