@@ -223,7 +223,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
-// Get all products with their total inventory
+// Get all products with their total inventory and batch details
 $sql = "SELECT p.*, 
         COALESCE(SUM(i.quantity), 0) as total_stock,
         MIN(i.expiration_date) as nearest_expiry,
@@ -231,21 +231,43 @@ $sql = "SELECT p.*,
             CONCAT(i.batch_number, ':', i.quantity, ':', i.expiration_date)
             ORDER BY i.expiration_date ASC
             SEPARATOR '|'
-        ) as batch_details
+        ) as batch_details,
+        GROUP_CONCAT(DISTINCT
+            CONCAT(it.batch_number, ':', it.quantity, ':', inv.expiration_date)
+            ORDER BY it.transaction_date ASC
+            SEPARATOR '|'
+        ) as transaction_details,
+        (
+            SELECT COALESCE(SUM(CASE WHEN type = 'IN' THEN quantity ELSE -quantity END), 0)
+            FROM inventory_transactions 
+            WHERE product_id = p.id
+        ) as net_stock,
+        (
+            SELECT COALESCE(SUM(quantity), 0)
+            FROM inventory_transactions 
+            WHERE product_id = p.id AND type = 'OUT'
+        ) as total_out,
+        (
+            SELECT COALESCE(SUM(quantity), 0)
+            FROM inventory_transactions 
+            WHERE product_id = p.id AND type = 'IN'
+        ) as total_in
         FROM products p
         LEFT JOIN inventory i ON p.id = i.product_id
+        LEFT JOIN inventory_transactions it ON p.id = it.product_id AND it.type = 'IN'
+        LEFT JOIN inventory inv ON it.batch_number = inv.batch_number
         GROUP BY p.id";
 $products = $conn->query($sql);
 
-$batchesql = "SELECT 
-    lt.*,
-    i.expiration_date
-FROM inventory_transactions lt
-LEFT JOIN inventory i 
-    ON lt.product_id = i.product_id AND lt.batch_number = i.batch_number
-WHERE lt.type = 'IN'
-ORDER BY lt.transaction_date;";
-$batchData = $conn->query($batchesql);
+// $batchesql = "SELECT 
+//     lt.*,
+//     i.expiration_date
+// FROM inventory_transactions lt
+// LEFT JOIN inventory i 
+//     ON lt.product_id = i.product_id AND lt.batch_number = i.batch_number
+// WHERE lt.type = 'IN'
+// ORDER BY lt.transaction_date;";
+// $batchData = $conn->query($batchesql);
 ?>
 
 <!-- Add necessary styles -->
@@ -361,14 +383,36 @@ $batchData = $conn->query($batchesql);
         flex: 1;
     }
 
+    .stock-info {
+        line-height: 1.5;
+        padding: 8px 0;
+    }
+    
+    .total-in {
+        font-size: 0.85rem;
+        color: #6c757d; /* Muted gray */
+    }
+    
     .total-stock {
-        color: #28a745; /* Green for total stock */
+        font-size: 0.95rem;
+        color: #28a745; /* Green but muted */
     }
+    
     .usable-stock {
-        color: #007bff; /* Blue for usable stock */
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #007bff; /* Bright blue */
     }
+    
     .expired-stock {
-        color: #dc3545; /* Red for expired stock */
+        font-size: 0.75rem;
+        color: #dc3545; /* Red but muted */
+        opacity: 0.7;
+    }
+    
+    .out-stock {
+        font-size: 0.85rem;
+        color: #6c757d; /* Muted gray */
     }
 </style>
 
@@ -444,19 +488,40 @@ $batchData = $conn->query($batchesql);
                                             // Calculate usable and expired stock
                                             $usable_stock = 0;
                                             $expired_stock = 0;
-                                            if ($row['batch_details']) {
-                                                $batches = explode('|', $row['batch_details']);
-                                                foreach ($batches as $batch) {
-                                                    list($batchNumber, $quantity, $expiryDate) = explode(':', $batch);
-                                                    if (strtotime($expiryDate) > time()) {
-                                                        $usable_stock += $quantity;
-                                                    } else {
-                                                        $expired_stock += $quantity;
+                                            $total_stock = 0;
+                                            $total_out = (int)$row['total_out'];
+                                            $total_in = (int)$row['total_in'];
+                                            
+                                            // Calculate from inventory transactions (IN type)
+                                            if ($row['transaction_details']) {
+                                                $transactions = explode('|', $row['transaction_details']);
+                                                foreach ($transactions as $transaction) {
+                                                    $transactionData = explode(':', $transaction);
+                                                    if (count($transactionData) >= 3) {
+                                                        $quantity = (int)$transactionData[1];
+                                                        $expiryDate = $transactionData[2];
+                                                        $total_stock += $quantity;
+                                                        
+                                                        if ($expiryDate && strtotime($expiryDate) > time()) {
+                                                            $usable_stock += $quantity;
+                                                        } else {
+                                                            $expired_stock += $quantity;
+                                                        }
                                                     }
                                                 }
                                             }
+
+                                            // Adjust total stock based on net transactions (IN - OUT)
+                                            $net_stock = (int)$row['net_stock'];
+                                            $total_stock = $net_stock;
+                                            if ($total_stock < $expired_stock) {
+                                                $expired_stock = $total_stock;
+                                                $usable_stock = 0;
+                                            } else {
+                                                $usable_stock = $total_stock - $expired_stock;
+                                            }
                                             ?>
-                                            <tr onclick="showProductDetails(<?php echo htmlspecialchars(json_encode($row)); ?>, <?php echo htmlspecialchars(json_encode($batchData->fetch_all(MYSQLI_ASSOC))); ?>)" style="cursor: pointer;">
+                                            <tr onclick="showProductDetails(<?php echo htmlspecialchars(json_encode($row)); ?>)" style="cursor: pointer;">
                                                 <td class="ps-4"><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['brand_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['generic_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['uses']); ?></span></td>
@@ -464,9 +529,11 @@ $batchData = $conn->query($batchesql);
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['unit_of_measure']); ?></span></td>
                                                 <td>
                                                     <div class="stock-info">
-                                                        <!-- <span class="total-stock">Total: <?php echo $row['total_stock']; ?></span><br> -->
-                                                        <span class="usable-stock">Usable: <?php echo $usable_stock; ?></span><br>
-                                                        <span class="expired-stock">Expired: <?php echo $expired_stock; ?></span>
+                                                        <span class="total-in">📥 Total Received: <?php echo $total_in; ?></span><br>
+                                                        <span class="total-stock">💊 Current Stock: <?php echo $total_stock; ?></span><br>
+                                                        <span class="usable-stock">✅ Available: <?php echo $usable_stock; ?></span><br>
+                                                        <span class="expired-stock">⚠️ Expired: <?php echo $expired_stock; ?></span><br>
+                                                        <span class="out-stock">📤 Released: <?php echo $total_out; ?></span>
                                                     </div>
                                                 </td>
                                                 <td>
@@ -806,7 +873,7 @@ $batchData = $conn->query($batchesql);
         }
 
         // Add this to your existing script section
-        function showProductDetails(data, batchData) {
+        function showProductDetails(data) {
             
             // Populate existing details
             document.getElementById('detail_brand_name').textContent = data.brand_name;
@@ -821,22 +888,16 @@ $batchData = $conn->query($batchesql);
             const batchList = document.getElementById('batch_list');
             batchList.innerHTML = ''; // Clear existing content
             
-            console.log(data);
-            console.log(batchData);
-            if (batchData && batchData.length > 0) {
+            if (data.transaction_details) {
                 let totalQuantity = 0;
-                // const batches = batchData.split('|');
-                batchData.forEach(batch => {
-                    // const [batchNumber, quantity, expiryDate] = batch.split(':');
-                    if (batch.product_id != data.id){
-                        return;
-                    }
-
+                const batches = data.transaction_details.split('|');
+                batches.forEach(batch => {
+                    const [batchNumber, quantity, expiryDate] = batch.split(':');
                     const row = document.createElement('tr');
                     
                     // Calculate status based on expiry date
                     const today = new Date();
-                    const expiryDateTime = new Date(batch.expiration_date);
+                    const expiryDateTime = new Date(expiryDate);
                     const daysUntilExpiry = Math.ceil((expiryDateTime - today) / (1000 * 60 * 60 * 24));
                     
                     let status = '';
@@ -852,12 +913,12 @@ $batchData = $conn->query($batchesql);
                         statusClass = 'text-success';
                     }
 
-                    totalQuantity += parseInt(batch.quantity);
+                    totalQuantity += parseInt(quantity);
                     
                     row.innerHTML = `
-                        <td>${batch.batch_number}</td>
-                        <td>${batch.quantity}</td>
-                        <td>${batch.expiration_date}</td>
+                        <td>${batchNumber}</td>
+                        <td>${quantity}</td>
+                        <td>${expiryDate}</td>
                         <td><span class="${statusClass}">${status}</span></td>
                     `;
                     
