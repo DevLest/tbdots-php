@@ -94,16 +94,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
 $sql = "SELECT users.id, username, first_name, last_name, password, 
         roles.module, roles.description, roles.id as role_id, 
-        users.created_at, municipalities.location as municipality
-        -- barangays.name as barangay, users.location_id 
-        
+        users.created_at, municipalities.location as municipality,
+        users.location_id
         FROM users 
         INNER JOIN roles ON users.role = roles.id 
-        -- LEFT JOIN locations ON users.location_id = locations.id 
-        -- LEFT JOIN municipalities ON locations.municipality_id = municipalities.id 
         LEFT JOIN municipalities ON users.location_id = municipalities.id 
-        -- LEFT JOIN barangays ON locations.barangay_id = barangays.id 
-        WHERE users.role != 3 
+        WHERE users.role NOT IN (1,3)  
         ORDER BY users.created_at DESC";
 $users = $conn->query($sql);
 
@@ -112,7 +108,6 @@ $userRoles = $conn->query($rolesQuery);
 
 $locationsQuery = "SELECT DISTINCT m.id, m.location as municipality 
                   FROM municipalities m 
-                  -- INNER JOIN locations l ON l.municipality_id = m.id 
                   ORDER BY m.location";
 $locations = $conn->query($locationsQuery);
 ?>
@@ -270,6 +265,7 @@ $locations = $conn->query($locationsQuery);
 
     function editUser(id, username, first_name, last_name, role, location_id){
       var modal = new bootstrap.Modal(document.getElementById('addUserModal'))
+      console.log(location_id);
       document.getElementById('id').value = id;
       document.getElementById('username').value = username;
       document.getElementById('first_name').value = first_name;
