@@ -464,7 +464,7 @@ $batchData = $conn->query($batchesql);
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['unit_of_measure']); ?></span></td>
                                                 <td>
                                                     <div class="stock-info">
-                                                        <span class="total-stock">Total: <?php echo $row['total_stock']; ?></span><br>
+                                                        <!-- <span class="total-stock">Total: <?php echo $row['total_stock']; ?></span><br> -->
                                                         <span class="usable-stock">Usable: <?php echo $usable_stock; ?></span><br>
                                                         <span class="expired-stock">Expired: <?php echo $expired_stock; ?></span>
                                                     </div>
@@ -824,6 +824,7 @@ $batchData = $conn->query($batchesql);
             console.log(data);
             console.log(batchData);
             if (batchData && batchData.length > 0) {
+                let totalQuantity = 0;
                 // const batches = batchData.split('|');
                 batchData.forEach(batch => {
                     // const [batchNumber, quantity, expiryDate] = batch.split(':');
@@ -850,6 +851,8 @@ $batchData = $conn->query($batchesql);
                         status = 'Good';
                         statusClass = 'text-success';
                     }
+
+                    totalQuantity += parseInt(batch.quantity);
                     
                     row.innerHTML = `
                         <td>${batch.batch_number}</td>
@@ -860,6 +863,14 @@ $batchData = $conn->query($batchesql);
                     
                     batchList.appendChild(row);
                 });
+
+                const totalRow = document.createElement('tr');
+                totalRow.innerHTML = `
+                    <td>Total Quantity</td>
+                    <td colspan="3"><b>${totalQuantity}</></td>
+                `;
+
+                batchList.appendChild(totalRow);
             } else {
                 batchList.innerHTML = '<tr><td colspan="4" class="text-center">No batch information available</td></tr>';
             }

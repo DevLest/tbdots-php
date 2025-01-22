@@ -94,13 +94,15 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
 $sql = "SELECT users.id, username, first_name, last_name, password, 
         roles.module, roles.description, roles.id as role_id, 
-        users.created_at, municipalities.location as municipality, 
-        barangays.name as barangay, users.location_id 
+        users.created_at, municipalities.location as municipality
+        -- barangays.name as barangay, users.location_id 
+        
         FROM users 
         INNER JOIN roles ON users.role = roles.id 
-        LEFT JOIN locations ON users.location_id = locations.id 
-        LEFT JOIN municipalities ON locations.municipality_id = municipalities.id 
-        LEFT JOIN barangays ON locations.barangay_id = barangays.id 
+        -- LEFT JOIN locations ON users.location_id = locations.id 
+        -- LEFT JOIN municipalities ON locations.municipality_id = municipalities.id 
+        LEFT JOIN municipalities ON users.location_id = municipalities.id 
+        -- LEFT JOIN barangays ON locations.barangay_id = barangays.id 
         WHERE users.role != 3 
         ORDER BY users.created_at DESC";
 $users = $conn->query($sql);
@@ -110,7 +112,7 @@ $userRoles = $conn->query($rolesQuery);
 
 $locationsQuery = "SELECT DISTINCT m.id, m.location as municipality 
                   FROM municipalities m 
-                  INNER JOIN locations l ON l.municipality_id = m.id 
+                  -- INNER JOIN locations l ON l.municipality_id = m.id 
                   ORDER BY m.location";
 $locations = $conn->query($locationsQuery);
 ?>
@@ -164,7 +166,7 @@ $locations = $conn->query($locationsQuery);
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["description"]."</span></td>
                                 <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
                                 <td><span class='text-secondary text-xs font-weight-bold'>";
-                            echo ($row["municipality"] && $row["barangay"] ? $row["barangay"] . ', ' . $row["municipality"] : 'Not Assigned');
+                            echo ($row["municipality"] ? $row["municipality"] : 'Not Assigned');
                             echo "</span></td>
                                 <td class='align-middle'>";
                             echo in_array(3, $_SESSION['module']) ? "
