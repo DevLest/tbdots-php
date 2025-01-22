@@ -236,6 +236,16 @@ $sql = "SELECT p.*,
         LEFT JOIN inventory i ON p.id = i.product_id
         GROUP BY p.id";
 $products = $conn->query($sql);
+
+$batchesql = "SELECT 
+    lt.*,
+    i.expiration_date
+FROM inventory_transactions lt
+LEFT JOIN inventory i 
+    ON lt.product_id = i.product_id AND lt.batch_number = i.batch_number
+WHERE lt.type = 'IN'
+ORDER BY lt.transaction_date;";
+$batchData = $conn->query($batchesql);
 ?>
 
 <!-- Add necessary styles -->
@@ -446,7 +456,7 @@ $products = $conn->query($sql);
                                                 }
                                             }
                                             ?>
-                                            <tr onclick="showProductDetails(<?php echo htmlspecialchars(json_encode($row)); ?>)" style="cursor: pointer;">
+                                            <tr onclick="showProductDetails(<?php echo htmlspecialchars(json_encode($row)); ?>, <?php echo htmlspecialchars(json_encode($batchData->fetch_all(MYSQLI_ASSOC))); ?>)" style="cursor: pointer;">
                                                 <td class="ps-4"><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['brand_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['generic_name']); ?></span></td>
                                                 <td><span class="text-secondary text-xs"><?php echo htmlspecialchars($row['uses']); ?></span></td>
@@ -796,7 +806,8 @@ $products = $conn->query($sql);
         }
 
         // Add this to your existing script section
-        function showProductDetails(data) {
+        function showProductDetails(data, batchData) {
+            
             // Populate existing details
             document.getElementById('detail_brand_name').textContent = data.brand_name;
             document.getElementById('detail_generic_name').textContent = data.generic_name;
@@ -810,15 +821,21 @@ $products = $conn->query($sql);
             const batchList = document.getElementById('batch_list');
             batchList.innerHTML = ''; // Clear existing content
             
-            if (data.batch_details) {
-                const batches = data.batch_details.split('|');
-                batches.forEach(batch => {
-                    const [batchNumber, quantity, expiryDate] = batch.split(':');
+            console.log(data);
+            console.log(batchData);
+            if (batchData && batchData.length > 0) {
+                // const batches = batchData.split('|');
+                batchData.forEach(batch => {
+                    // const [batchNumber, quantity, expiryDate] = batch.split(':');
+                    if (batch.product_id != data.id){
+                        return;
+                    }
+
                     const row = document.createElement('tr');
                     
                     // Calculate status based on expiry date
                     const today = new Date();
-                    const expiryDateTime = new Date(expiryDate);
+                    const expiryDateTime = new Date(batch.expiration_date);
                     const daysUntilExpiry = Math.ceil((expiryDateTime - today) / (1000 * 60 * 60 * 24));
                     
                     let status = '';
@@ -835,9 +852,9 @@ $products = $conn->query($sql);
                     }
                     
                     row.innerHTML = `
-                        <td>${batchNumber}</td>
-                        <td>${quantity}</td>
-                        <td>${expiryDate}</td>
+                        <td>${batch.batch_number}</td>
+                        <td>${batch.quantity}</td>
+                        <td>${batch.expiration_date}</td>
                         <td><span class="${statusClass}">${status}</span></td>
                     `;
                     
