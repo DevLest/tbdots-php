@@ -754,6 +754,146 @@ $physicians = $conn->query($physicianssql);
   #patientDetailsModal .btn-secondary:hover {
     background-color: #5a6268;
   }
+
+  .card-header .form-select,
+  .card-header .form-control {
+    height: 38px;
+    background-color: white;
+    border: none;
+  }
+
+  .card-header .btn {
+    height: 38px;
+    padding: 0 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+  }
+
+  .card-header .dropdown-toggle {
+    padding: 0 1rem;
+    background-color: white;
+    color: #333;
+    border: none;
+  }
+
+  .card-header .dropdown-menu {
+    padding: 0.5rem 0;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+
+  .card-header .dropdown-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .card-header .dropdown-item:hover {
+    background-color: #f8f9fa;
+  }
+
+  /* Table Styles */
+  .table {
+    border-collapse: separate;
+    border-spacing: 0 8px;
+    margin-top: -8px;
+  }
+
+  .table thead th {
+    border: none;
+    font-size: 0.75rem;
+    padding: 12px 24px;
+    text-transform: uppercase;
+    font-weight: 700;
+    background: transparent;
+  }
+
+  .table tbody tr {
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+  }
+
+  .table tbody tr:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+
+  .table tbody td {
+    border: none;
+    padding: 12px 24px;
+    vertical-align: middle;
+  }
+
+  /* Status Badge Styles */
+  .badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.75rem;
+  }
+
+  /* Action Buttons */
+  .btn-link {
+    color: #344767;
+    text-decoration: none;
+    font-size: 1rem;
+    padding: 0.25rem !important;
+    line-height: 1;
+    transition: all 0.2s;
+    margin: 0 2px;
+    border-radius: 4px;
+  }
+
+  .btn-link:hover {
+    color: #E91E63;
+    background-color: rgba(233, 30, 99, 0.1);
+  }
+
+  /* Tooltip styles */
+  .btn-link[title] {
+    position: relative;
+  }
+
+  .btn-link[title]:hover:after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+  }
+
+  /* Add this PHP function for treatment status colors */
+  <?php
+  function getTreatmentStatusClass($status) {
+      switch ($status) {
+          case 'CURED':
+              return 'bg-success text-white';
+          case 'TREATMENT COMPLETED':
+              return 'bg-info text-white';
+          case 'TREATMENT FAILED':
+              return 'bg-danger text-white';
+          case 'DIED':
+              return 'bg-dark text-white';
+          case 'LOST TO FOLLOW UP':
+              return 'bg-warning text-dark';
+          case 'NOT EVALUATED':
+              return 'bg-secondary text-white';
+          case 'ON-GOING':
+              return 'bg-primary text-white';
+          default:
+              return 'bg-light text-dark';
+      }
+  }
+  ?>
 </style>
 
 <body class="g-sidenav-show  bg-gray-200">
@@ -768,151 +908,188 @@ $physicians = $conn->query($physicianssql);
       <div class="row">
         <div class="col-12">
           <div class="card my-4">
-            <div class="card-header d-flex justify-content-between align-items-center p-4" style="background-color: #E91E63;">
-              <div>
+            <div class="card-header d-flex flex-wrap gap-3 p-4" style="background-color: #E91E63;">
+              <div class="d-flex align-items-center gap-3">
                 <h6 class="text-white mb-0">Patient List</h6>
+                <div class="btn-group">
+                  <button type="button" class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-file-export me-2"></i>Export Patients
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="exportPatients('current')">
+                        <i class="fas fa-filter me-2"></i>Export Current Filter
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="exportPatients('all')">
+                        <i class="fas fa-users me-2"></i>Export All Patients
+                      </a>
+                    </li>
+                    <?php if(isset($_SESSION['role_id']) && $_SESSION['role_id'] == 2): ?>
+                    <li>
+                      <a class="dropdown-item" href="#" onclick="exportPatients('treatment')">
+                        <i class="fas fa-notes-medical me-2"></i>Export with Treatment Details
+                      </a>
+                    </li>
+                    <?php endif; ?>
+                  </ul>
+                </div>
               </div>
-              <form method="GET" class="d-flex align-items-center gap-2 flex-wrap">
-                <div class="d-flex gap-2" style="flex: 1;">
-                    <div class="d-flex flex-wrap gap-2 align-items-center" style="flex: 1;">
-                        <select name="municipality" class="form-select" style="min-width: 180px; max-width: 200px;">
-                            <option value="0">All Municipalities</option>
-                            <?php 
-                            $municipalities = $conn->query("SELECT id, location FROM municipalities");
-                            while($municipality = $municipalities->fetch_assoc()): 
-                            ?>
-                                <option value="<?php echo $municipality['id']; ?>" <?php echo $selectedMunicipality == $municipality['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($municipality['location']); ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                        
-                        <select name="barangay" class="form-select" style="min-width: 180px; max-width: 200px;">
-                            <option value="0">All Barangays</option>
-                            <?php 
-                            $barangays = $conn->query("SELECT id, name FROM barangays");
-                            while($barangay = $barangays->fetch_assoc()): 
-                            ?>
-                                <option value="<?php echo $barangay['id']; ?>" <?php echo $selectedBarangay == $barangay['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($barangay['name']); ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                        
-                        <select name="gender" class="form-select" style="min-width: 140px; max-width: 160px;">
-                            <option value="0">All Genders</option>
-                            <option value="1" <?php echo $selectedGender == 1 ? 'selected' : ''; ?>>Male</option>
-                            <option value="2" <?php echo $selectedGender == 2 ? 'selected' : ''; ?>>Female</option>
-                        </select>
-                        
-                        <select name="outcome" class="form-select" style="min-width: 180px; max-width: 200px;">
-                            <option value="0">All Outcomes</option>
-                            <option value="CURED" <?php echo $selectedOutcome == 'CURED' ? 'selected' : ''; ?>>Cured</option>
-                            <option value="TREATMENT COMPLETED" <?php echo $selectedOutcome == 'TREATMENT COMPLETED' ? 'selected' : ''; ?>>Treatment Completed</option>
-                            <option value="TREATMENT FAILED" <?php echo $selectedOutcome == 'TREATMENT FAILED' ? 'selected' : ''; ?>>Treatment Failed</option>
-                            <option value="DIED" <?php echo $selectedOutcome == 'DIED' ? 'selected' : ''; ?>>Died</option>
-                            <option value="LOST TO FOLLOW UP" <?php echo $selectedOutcome == 'LOST TO FOLLOW UP' ? 'selected' : ''; ?>>Lost to Follow Up</option>
-                            <option value="NOT EVALUATED" <?php echo $selectedOutcome == 'NOT EVALUATED' ? 'selected' : ''; ?>>Not Evaluated</option>
-                            <option value="ON-GOING" <?php echo $selectedOutcome == 'ON-GOING' ? 'selected' : ''; ?>>On-going</option>
-                            <option value="NO_RESULTS" <?php echo $selectedOutcome == 'NO_RESULTS' ? 'selected' : ''; ?>>No Lab Results</option>
-                        </select>
-                        
-                        <input type="text" name="search" class="form-control" placeholder="Search by name..." 
-                               value="<?php echo htmlspecialchars($searchName); ?>" style="min-width: 200px; flex: 1;">
-                    </div>
 
-                    <div class="d-flex gap-2 align-items-center">
-                        <button type="submit" class="btn btn-light">FILTER</button>
-                        <!-- <a href="patients.php" class="btn btn-outline-light">RESET</a> -->
-                        <button type="button" class="btn btn-light d-flex align-items-center gap-2" onclick="openAddModal()">
-                            <i class="fas fa-plus"></i>
-                            <span>PATIENT</span>
-                        </button>
-                    </div>
+              <form method="GET" class="d-flex flex-grow-1 gap-2 flex-wrap">
+                <div class="d-flex flex-wrap gap-2" style="flex: 1;">
+                  <select name="municipality" class="form-select" style="max-width: 200px;">
+                    <option value="0">All Municipalities</option>
+                    <?php 
+                    $municipalities = $conn->query("SELECT id, location FROM municipalities");
+                    while($municipality = $municipalities->fetch_assoc()): 
+                    ?>
+                      <option value="<?php echo $municipality['id']; ?>" <?php echo $selectedMunicipality == $municipality['id'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($municipality['location']); ?>
+                      </option>
+                    <?php endwhile; ?>
+                  </select>
+
+                  <select name="barangay" class="form-select" style="max-width: 200px;">
+                    <option value="0">All Barangays</option>
+                    <?php 
+                    $barangays = $conn->query("SELECT id, name FROM barangays");
+                    while($barangay = $barangays->fetch_assoc()): 
+                    ?>
+                      <option value="<?php echo $barangay['id']; ?>" <?php echo $selectedBarangay == $barangay['id'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($barangay['name']); ?>
+                      </option>
+                    <?php endwhile; ?>
+                  </select>
+
+                  <select name="gender" class="form-select" style="max-width: 150px;">
+                    <option value="0">All Genders</option>
+                    <option value="1" <?php echo $selectedGender == 1 ? 'selected' : ''; ?>>Male</option>
+                    <option value="2" <?php echo $selectedGender == 2 ? 'selected' : ''; ?>>Female</option>
+                  </select>
+
+                  <select name="outcome" class="form-select" style="max-width: 200px;">
+                    <option value="0">All Outcomes</option>
+                    <option value="CURED" <?php echo $selectedOutcome == 'CURED' ? 'selected' : ''; ?>>Cured</option>
+                    <option value="TREATMENT COMPLETED" <?php echo $selectedOutcome == 'TREATMENT COMPLETED' ? 'selected' : ''; ?>>Treatment Completed</option>
+                    <option value="TREATMENT FAILED" <?php echo $selectedOutcome == 'TREATMENT FAILED' ? 'selected' : ''; ?>>Treatment Failed</option>
+                    <option value="DIED" <?php echo $selectedOutcome == 'DIED' ? 'selected' : ''; ?>>Died</option>
+                    <option value="LOST TO FOLLOW UP" <?php echo $selectedOutcome == 'LOST TO FOLLOW UP' ? 'selected' : ''; ?>>Lost to Follow Up</option>
+                    <option value="NOT EVALUATED" <?php echo $selectedOutcome == 'NOT EVALUATED' ? 'selected' : ''; ?>>Not Evaluated</option>
+                    <option value="ON-GOING" <?php echo $selectedOutcome == 'ON-GOING' ? 'selected' : ''; ?>>On-going</option>
+                    <option value="NO_RESULTS" <?php echo $selectedOutcome == 'NO_RESULTS' ? 'selected' : ''; ?>>No Lab Results</option>
+                  </select>
+
+                  <input type="text" name="search" class="form-control" placeholder="Search by name..." 
+                         value="<?php echo htmlspecialchars($searchName); ?>" style="flex: 1;">
+                </div>
+
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-light">FILTER</button>
+                  <button type="button" class="btn btn-light d-flex align-items-center gap-2" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i>
+                    <span>PATIENT</span>
+                  </button>
                 </div>
               </form>
             </div>
-            <div class="card-body px-0 pb-2">
-              <div class="table-responsive p-0">
-                <table class="table align-items-center mb-0" id="patientsTable">
+            <div class="card-body px-4 pb-4">
+              <div class="table-responsive">
+                <table class="table align-items-center mb-0">
                   <thead>
                     <tr>
-                      <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Full name
-                      </th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                        Address</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Gender
-                      </th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Age
-                      </th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                        Registered Since</th>
-                      <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                        Treatment Status</th>
-                      <th class="text-secondary opacity-7"></th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Full Name</th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Address</th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Gender</th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Age</th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Registered Since</th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Treatment Status</th>
+                      <th class="text-uppercase text-secondary text-xs font-weight-bolder opacity-7">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <?php 
-                        if ($patientsData->num_rows > 0) {
-                          // Output data of each row
-                          while($row = $patientsData->fetch_assoc()) {
-                            $address = '';
-                            if (!empty($row["barangay_name"])) {
-                                $address .= "Brgy. " . htmlspecialchars($row["barangay_name"]);
-                            }
-                            if (!empty($row["municipality_name"])) {
-                                $address .= (!empty($address) ? ", " : "") . htmlspecialchars($row["municipality_name"]);
-                            }
-                            if (empty($address) && !empty($row["address"])) {
-                                $address = htmlspecialchars($row["address"]);
-                            }
-                            // Check if lab results exist for the patient
-                            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM lab_results WHERE patient_id = ?");
-                            $stmt->bind_param('i', $row["id"]);
-                            $stmt->execute();
-                            $result = $stmt->get_result();
-                            $labResults = $result->fetch_assoc();
-
-                            echo "
-                              <tr>
-                                <td><span class='text-secondary text-xs font-weight-bold'>".$row["fullname"]."</span></td>
-                                <td class='text-center'>
-                                    <span class='text-secondary text-xs font-weight-bold'>".$address."</span>
-                                </td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".($row["gender"] == 1 ? "Male" : "Female")."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["age"]."</span></td>
-                                <td class='text-center'><span class='text-secondary text-xs font-weight-bold'>".$row["created_at"]."</span></td>
-                                <td class='text-center'>
-                                    <span class='text-secondary text-xs font-weight-bold'>" .  (isset($row["treatment_outcome"]) ? htmlspecialchars($row["treatment_outcome"]) : "No Lab Results") . "</span>
-                                </td>
-                                <td class='align-middle'>
-                                  <button onclick='showPatientDetails(".$row["id"].")' class='btn btn-link text-secondary mb-0'>
-                                    <i class='fa fa-user text-xs'></i> Details
-                                  </button>
-                                  " . ($labResults['count'] > 0 ? "
-                                  <button onclick='showLabResults(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
-                                    <i class='fa fa-flask text-xs'></i> Lab Results
-                                  </button>" : "") . "
-                                    <button onclick='addLogbookEntry(".$row["id"].", \"".htmlspecialchars($row["fullname"], ENT_QUOTES)."\")' class='btn btn-link text-secondary mb-0'>
-                                      <i class='fa fa-book text-xs'></i> Open Logbook
-                                    </button>" .
-                                    (in_array(11, $_SESSION['module']) ? "
-                                    <button onclick='editPatient(".$row["id"].", ".json_encode($row).")' class='btn btn-link text-secondary mb-0'>
-                                      <i class='fa fa-edit text-xs'></i> Edit
-                                    </button>" : "") . "
-                                  " . (in_array(12, $_SESSION['module']) ? "
-                                    <form method='POST' style='display:inline;' onsubmit='return confirm(\"Are you sure you want to delete this patient?\");'>
-                                      <input type='hidden' name='delete_id' value='".$row["id"]."'>
-                                      <button type='submit' class='btn btn-link text-secondary mb-0'>
-                                        <i class='fa fa-trash text-xs'></i> Delete
-                                      </button>
-                                    </form>" : "") . "
-                                </td>
-                              </tr>
-                            ";
-                          }
+                    <?php if ($patientsData->num_rows > 0): 
+                      while($row = $patientsData->fetch_assoc()): 
+                        $address = '';
+                        if (!empty($row["barangay_name"])) {
+                            $address .= "Brgy. " . htmlspecialchars($row["barangay_name"]);
                         }
+                        if (!empty($row["municipality_name"])) {
+                            $address .= (!empty($address) ? ", " : "") . htmlspecialchars($row["municipality_name"]);
+                        }
+                        if (empty($address) && !empty($row["address"])) {
+                            $address = htmlspecialchars($row["address"]);
+                        }
+                        
+                        // Get lab results status
+                        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM lab_results WHERE patient_id = ?");
+                        $stmt->bind_param('i', $row["id"]);
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        $labResults = $result->fetch_assoc();
+                    ?>
+                      <tr>
+                        <td>
+                          <p class="text-sm font-weight-bold mb-0"><?php echo htmlspecialchars($row["fullname"]); ?></p>
+                        </td>
+                        <td>
+                          <p class="text-sm text-secondary mb-0"><?php echo $address; ?></p>
+                        </td>
+                        <td>
+                          <p class="text-sm text-secondary mb-0"><?php echo ($row["gender"] == 1 ? "Male" : "Female"); ?></p>
+                        </td>
+                        <td>
+                          <p class="text-sm text-secondary mb-0"><?php echo htmlspecialchars($row["age"]); ?></p>
+                        </td>
+                        <td>
+                          <p class="text-sm text-secondary mb-0"><?php echo date('Y-m-d H:i:s', strtotime($row["created_at"])); ?></p>
+                        </td>
+                        <td>
+                          <span class="badge badge-sm <?php echo getTreatmentStatusClass($row["treatment_outcome"]); ?>">
+                            <?php echo isset($row["treatment_outcome"]) ? htmlspecialchars($row["treatment_outcome"]) : "No Lab Results"; ?>
+                          </span>
+                        </td>
+                        <td>
+                          <div class="d-flex align-items-center gap-1">
+                            <a href="#" onclick="showPatientDetails(<?php echo $row['id']; ?>)" 
+                               class="btn btn-link p-1" title="View Details">
+                              <i class="fas fa-info-circle"></i>
+                            </a>
+                            
+                            <?php if ($labResults['count'] > 0): ?>
+                            <a href="#" onclick="showLabResults(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['fullname'], ENT_QUOTES); ?>')" 
+                               class="btn btn-link p-1" title="Lab Results">
+                              <i class="fas fa-flask"></i>
+                            </a>
+                            <?php endif; ?>
+                            
+                            <a href="#" onclick="addLogbookEntry(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['fullname'], ENT_QUOTES); ?>')" 
+                               class="btn btn-link p-1" title="Logbook">
+                              <i class="fas fa-book"></i>
+                            </a>
+                            
+                            <?php if (in_array(11, $_SESSION['module'])): ?>
+                            <a href="#" onclick="editPatient(<?php echo $row['id']; ?>, <?php echo htmlspecialchars(json_encode($row), ENT_QUOTES); ?>)" 
+                               class="btn btn-link p-1" title="Edit">
+                              <i class="fas fa-edit"></i>
+                            </a>
+                            <?php endif; ?>
+                            
+                            <?php if (in_array(12, $_SESSION['module'])): ?>
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this patient?');">
+                              <input type="hidden" name="delete_id" value="<?php echo $row['id']; ?>">
+                              <button type="submit" class="btn btn-link p-1" title="Delete">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </form>
+                            <?php endif; ?>
+                          </div>
+                        </td>
+                      </tr>
+                    <?php 
+                      endwhile;
+                    endif; 
                     ?>
                   </tbody>
                 </table>
@@ -1606,6 +1783,29 @@ $physicians = $conn->query($physicianssql);
           alert('Error saving logbook entry');
         });
       });
+
+      function exportPatients(type) {
+        // Get current filter values
+        const municipality = document.querySelector('select[name="municipality"]').value;
+        const barangay = document.querySelector('select[name="barangay"]').value;
+        const gender = document.querySelector('select[name="gender"]').value;
+        const outcome = document.querySelector('select[name="outcome"]').value;
+        const search = document.querySelector('input[name="search"]').value;
+
+        // Build query parameters
+        let params = new URLSearchParams();
+        if (type === 'current') {
+            params.append('municipality', municipality);
+            params.append('barangay', barangay);
+            params.append('gender', gender);
+            params.append('outcome', outcome);
+            params.append('search', search);
+        }
+        params.append('export_type', type);
+
+        // Open export page in new tab
+        window.open(`view_patient_export.php?${params.toString()}`, '_blank');
+      }
     </script>
 
     <?php include_once('footer.php'); ?>

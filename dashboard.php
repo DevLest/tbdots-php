@@ -334,6 +334,35 @@ $gradients = [
       <div class="row mb-4">
         <div class="col-12">
           <div class="card">
+            <div class="card-header p-3">
+              <div class="row">
+                <div class="col-md-6">
+                  <h5 class="mb-0">Patient Reports</h5>
+                  <p class="text-sm mb-0">Generate reports and statistics</p>
+                </div>
+                <div class="col-md-6 d-flex gap-2 justify-content-end align-items-center">
+                  <div class="btn-group">
+                    <button type="button" class="btn btn-info dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                      Summary Report
+                    </button>
+                    <ul class="dropdown-menu">
+                      <li><a class="dropdown-item" href="#" onclick="generateSummaryReport('week')">This Week</a></li>
+                      <li><a class="dropdown-item" href="#" onclick="generateSummaryReport('month')">This Month</a></li>
+                      <li><a class="dropdown-item" href="#" onclick="generateSummaryReport('year')">This Year</a></li>
+                    </ul>
+                  </div>
+                  <?php if(isset($_SESSION['role_id']) && $_SESSION['role_id'] == 2 || $_SESSION['role_id'] == 1): ?>
+                    <button onclick="showPatientSelector()" class="btn btn-primary">Treatment Report</button>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
             <div class="card-body p-3">
               <form method="GET" class="row justify-content-end">
                 <div class="col-md-3 mb-3">
@@ -543,6 +572,28 @@ $gradients = [
           </div>
         </div>
       </div>
+      <!-- Patient Selector Modal -->
+      <div class="modal fade" id="patientSelectorModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Select Patient</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="input-group input-group-outline mb-3">
+                <select class="form-control" id="patientSelect">
+                  <option value="">Select a patient...</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-primary" onclick="generateTreatmentReport()">Generate Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <?php
         include_once('footer.php');
       ?>
@@ -713,6 +764,34 @@ $gradients = [
                   });
               });
       }
+  }
+  </script>
+  <script>
+  function generateSummaryReport(period) {
+    window.open(`view_summary_report.php?period=${period}`, '_blank');
+  }
+
+  function showPatientSelector() {
+    // Load patients into select
+    fetch('get_patients.php')
+      .then(response => response.json())
+      .then(data => {
+        const select = document.getElementById('patientSelect');
+        select.innerHTML = '<option value="">Select a patient...</option>';
+        data.forEach(patient => {
+          select.innerHTML += `<option value="${patient.id}">${patient.fullname}</option>`;
+        });
+        new bootstrap.Modal(document.getElementById('patientSelectorModal')).show();
+      });
+  }
+
+  function generateTreatmentReport() {
+    const patientId = document.getElementById('patientSelect').value;
+    if (!patientId) {
+      alert('Please select a patient');
+      return;
+    }
+    window.open(`view_treatment_report.php?patient_id=${patientId}`, '_blank');
   }
   </script>
 </body>
