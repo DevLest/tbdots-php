@@ -433,6 +433,9 @@ $products = $conn->query($sql);
                                         <div class="input-group input-group-outline bg-white rounded">
                                             <input type="text" id="searchInventory" class="form-control" placeholder="Search inventory...">
                                         </div>
+                                        <button type="button" class="btn bg-white btn-sm" onclick="printInventory()">
+                                            <i class="fas fa-print"></i> Print
+                                        </button>
                                         <button type="button" class="btn bg-white btn-sm" data-bs-toggle="modal" data-bs-target="#addProductModal">
                                             + Product
                                         </button>
@@ -823,6 +826,43 @@ $products = $conn->query($sql);
             </div>
         </div>
 
+        <!-- Add this at the bottom of the file -->
+        <div id="printSection" style="display: none;">
+            <style>
+                @media print {
+                    .print-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 20px;
+                    }
+                    .print-table th,
+                    .print-table td {
+                        border: 1px solid #ddd;
+                        padding: 8px;
+                        text-align: left;
+                    }
+                    .print-table th {
+                        background-color: #f4f4f4;
+                    }
+                    .print-header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                    }
+                    .print-header h2 {
+                        margin: 0;
+                        padding: 10px 0;
+                    }
+                    .print-date {
+                        text-align: right;
+                        margin-bottom: 20px;
+                    }
+                    .stock-details {
+                        margin: 5px 0;
+                    }
+                }
+            </style>
+        </div>
+
         <?php include_once('footer.php'); ?>
     </main>
 
@@ -1006,6 +1046,94 @@ $products = $conn->query($sql);
                 }
             });
         });
+
+        function printInventory() {
+            // Create the printable content
+            let printWindow = window.open('', '_blank');
+            let today = new Date().toLocaleDateString();
+            
+            let content = `
+                <div class="print-header">
+                    <h2>Inventory Report</h2>
+                    <p>Generated on ${today}</p>
+                </div>
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th>Brand Name</th>
+                            <th>Generic Name</th>
+                            <th>Unit</th>
+                            <th>Stock Details</th>
+                            <th>Nearest Expiry</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Get all rows from the inventory table
+            document.querySelectorAll('#inventoryTable tbody tr').forEach(row => {
+                let brandName = row.querySelector('td:nth-child(1)').textContent;
+                let genericName = row.querySelector('td:nth-child(2)').textContent;
+                let unit = row.querySelector('td:nth-child(5)').textContent;
+                let stockInfo = row.querySelector('.stock-info').innerHTML;
+                let expiryDate = row.querySelector('td:nth-child(7)').textContent;
+
+                content += `
+                    <tr>
+                        <td>${brandName}</td>
+                        <td>${genericName}</td>
+                        <td>${unit}</td>
+                        <td>${stockInfo}</td>
+                        <td>${expiryDate}</td>
+                    </tr>
+                `;
+            });
+
+            content += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 30px;">
+                    <p><strong>Report Footer:</strong> This is an official inventory report.</p>
+                </div>
+            `;
+
+            // Write the content to the new window
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Inventory Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; }
+                        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        .print-table th { background-color: #f4f4f4; }
+                        .print-header { text-align: center; margin-bottom: 20px; }
+                        .print-header h2 { margin: 0; padding: 10px 0; }
+                        .stock-info { line-height: 1.5; }
+                        .total-in { color: #6c757d; }
+                        .total-stock { color: #28a745; }
+                        .usable-stock { color: #007bff; font-weight: bold; }
+                        .expired-stock { color: #dc3545; }
+                        .out-stock { color: #6c757d; }
+                        @media print {
+                            .stock-info span { display: block; margin: 2px 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${content}
+                </body>
+                </html>
+            `);
+
+            // Trigger print
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
     </script>
 </body>
 </html>
