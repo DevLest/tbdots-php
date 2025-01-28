@@ -40,12 +40,22 @@ FROM patients p
 LEFT JOIN locations l ON p.location_id = l.id
 LEFT JOIN municipalities m ON l.municipality_id = m.id
 LEFT JOIN barangays b ON l.barangay_id = b.id
-LEFT JOIN lab_results lr ON p.id = lr.patient_id
-WHERE lr.created_at BETWEEN ? AND ?
+LEFT JOIN (
+    SELECT patient_id, diagnosis, treatment_outcome, created_at
+    FROM lab_results
+    WHERE created_at BETWEEN ? AND ?
+    AND id IN (
+        SELECT MAX(id)
+        FROM lab_results
+        WHERE created_at BETWEEN ? AND ?
+        GROUP BY patient_id
+    )
+) lr ON p.id = lr.patient_id
+WHERE lr.created_at IS NOT NULL
 ORDER BY lr.created_at DESC";
 
 $stmt = $conn->prepare($sql);
-$stmt->bind_param('ss', $start_date, $end_date);
+$stmt->bind_param('ssss', $start_date, $end_date, $start_date, $end_date);
 $stmt->execute();
 $result = $stmt->get_result();
 ?>

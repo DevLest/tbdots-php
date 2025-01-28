@@ -542,15 +542,9 @@ $products = $conn->query($sql);
                                                     </span>
                                                 </td>
                                                 <td class="align-middle">
-                                                    <button onclick='editProduct(<?php echo json_encode($row); ?>)' class="btn btn-link text-secondary mb-0">
+                                                    <button onclick='event.stopPropagation(); editProduct(<?php echo json_encode($row); ?>)' class="btn btn-link text-secondary mb-0">
                                                         <i class="fa fa-edit text-xs"></i> Edit
                                                     </button>
-                                                    <!-- <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure?');"> -->
-                                                        <!-- <input type="hidden" name="delete_id" value="<?php echo $row['id']; ?>"> -->
-                                                        <!-- <button type="submit" class="btn btn-link text-secondary mb-0"> -->
-                                                            <!-- <i class="fa fa-trash text-xs"></i> Delete -->
-                                                        <!-- </button> -->
-                                                    <!-- </form> -->
                                                 </td>
                                             </tr>
                                         <?php endwhile; ?>
@@ -734,7 +728,7 @@ $products = $conn->query($sql);
                                                         ?>
                                                             <option value="<?php echo $row['id']; ?>" 
                                                                     data-stock="<?php echo $usable_stock; ?>">
-                                                                <?php echo htmlspecialchars($row['brand_name']); ?> 
+                                                                <?php echo htmlspecialchars($row['brand_name']) . ' (' . $row['unit_of_measure'] . ')'; ?> 
                                                                 (Available: <?php echo $usable_stock; ?>)
                                                             </option>
                                                         <?php endwhile; ?>

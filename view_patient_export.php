@@ -17,8 +17,11 @@ $filters = [
 ];
 
 // Build query based on export type and filters
-$sql = "SELECT 
-    p.*, 
+$sql = "SELECT DISTINCT 
+    p.id,
+    p.fullname, 
+    p.age,
+    p.gender,
     CONCAT(b.name, ', ', m.location) as address,
     lr.diagnosis,
     lr.treatment_outcome,
@@ -27,7 +30,15 @@ FROM patients p
 LEFT JOIN locations l ON p.location_id = l.id
 LEFT JOIN municipalities m ON l.municipality_id = m.id
 LEFT JOIN barangays b ON l.barangay_id = b.id
-LEFT JOIN lab_results lr ON p.id = lr.patient_id
+LEFT JOIN (
+    SELECT patient_id, diagnosis, treatment_outcome, case_number
+    FROM lab_results lr1
+    WHERE created_at = (
+        SELECT MAX(created_at)
+        FROM lab_results lr2
+        WHERE lr2.patient_id = lr1.patient_id
+    )
+) lr ON p.id = lr.patient_id
 WHERE 1=1";
 
 // Add filters if export_type is 'current'

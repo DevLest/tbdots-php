@@ -926,7 +926,7 @@ $physicians = $conn->query($physicianssql);
                         <i class="fas fa-users me-2"></i>Export All Patients
                       </a>
                     </li>
-                    <?php if(isset($_SESSION['role_id']) && $_SESSION['role_id'] == 2): ?>
+                    <?php if(isset($_SESSION['role_id']) && $_SESSION['role_id'] == 2 || $_SESSION['role_id'] == 1): ?>
                     <li>
                       <a class="dropdown-item" href="#" onclick="exportPatients('treatment')">
                         <i class="fas fa-notes-medical me-2"></i>Export with Treatment Details
