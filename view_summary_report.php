@@ -81,6 +81,38 @@ $result = $stmt->get_result();
         .report-header {
             text-align: center;
             margin-bottom: 20px;
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            width: 80px;
+            height: auto;
+        }
+        
+        .header-title {
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .header-title h2,
+        .header-title h3,
+        .header-title h4 {
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        
+        .period {
+            margin-top: 20px;
+            text-align: center;
         }
         
         table {
@@ -118,8 +150,19 @@ $result = $stmt->get_result();
     </div>
 
     <div class="report-header">
-        <h2><?php echo $title; ?></h2>
-        <p>Period: <?php echo date('M d, Y', strtotime($start_date)); ?> to <?php echo date('M d, Y', strtotime($end_date)); ?></p>
+        <div class="header-content">
+            <img src="../assets/img/icons/doh.jpeg" alt="DOH Logo" class="logo">
+            <div class="header-title">
+                <h2>TB DOTS</h2>
+                <h3>5th District Negros</h3>
+                <h4>Republic of The Philippines</h4>
+                <h4>Department of Health</h4>
+            </div>
+            <img src="../assets/img/icons/logo.png" alt="TB Hub Logo" class="logo">
+        </div>
+        <div class="period">
+            Period: <?php echo date('M d, Y', strtotime($start_date)); ?> to <?php echo date('M d, Y', strtotime($end_date)); ?>
+        </div>
     </div>
 
     <table>

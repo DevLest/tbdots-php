@@ -92,8 +92,12 @@ if ($export_type === 'treatment' && $_SESSION['role_id'] == 2) {
     <title>Patient Export</title>
     <style>
         @media print {
-            .no-print { display: none; }
-            body { padding: 20px; }
+            .no-print {
+                display: none;
+            }
+            body {
+                padding: 20px;
+            }
         }
         
         body {
@@ -103,7 +107,34 @@ if ($export_type === 'treatment' && $_SESSION['role_id'] == 2) {
         
         .report-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            width: 80px;
+            height: auto;
+        }
+        
+        .header-title {
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .header-title h2,
+        .header-title h3,
+        .header-title h4 {
+            margin: 5px 0;
+            font-weight: bold;
         }
         
         table {
@@ -133,6 +164,13 @@ if ($export_type === 'treatment' && $_SESSION['role_id'] == 2) {
         .medication-history {
             margin-left: 20px;
         }
+        
+        .report-type {
+            margin: 20px 0 10px 0;
+            font-weight: bold;
+            font-size: 1.5em;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -142,7 +180,17 @@ if ($export_type === 'treatment' && $_SESSION['role_id'] == 2) {
     </div>
 
     <div class="report-header">
-        <h2>Patient Export Report</h2>
+        <div class="header-content">
+            <img src="../assets/img/icons/doh.jpeg" alt="DOH Logo" class="logo">
+            <div class="header-title">
+                <h2>TB DOTS</h2>
+                <h3>5th District Negros</h3>
+                <h4>Republic of The Philippines</h4>
+                <h4>Department of Health</h4>
+            </div>
+            <img src="../assets/img/icons/logo.png" alt="TB Hub Logo" class="logo">
+        </div>
+        <h2 class="report-type">Patient Generated Report</h2>
         <p>Generated on: <?php echo date('M d, Y'); ?></p>
     </div>
 

@@ -1053,22 +1053,114 @@ $products = $conn->query($sql);
             let today = new Date().toLocaleDateString();
             
             let content = `
-                <div class="print-header">
-                    <h2>Inventory Report</h2>
-                    <p>Generated on ${today}</p>
-                </div>
-                <table class="print-table">
-                    <thead>
-                        <tr>
-                            <th>Brand Name</th>
-                            <th>Generic Name</th>
-                            <th>Unit</th>
-                            <th>Stock Details</th>
-                            <th>Nearest Expiry</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Inventory Report</title>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif;
+                            padding: 20px;
+                        }
+                        .report-header {
+                            text-align: center;
+                            margin-bottom: 20px;
+                            position: relative;
+                            padding: 20px 0;
+                        }
+                        
+                        .header-content {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            gap: 30px;
+                            margin-bottom: 20px;
+                        }
+                        
+                        .logo {
+                            width: 80px;
+                            height: auto;
+                        }
+                        
+                        .header-title {
+                            text-align: center;
+                            line-height: 1.4;
+                        }
+                        
+                        .header-title h2,
+                        .header-title h3,
+                        .header-title h4 {
+                            margin: 5px 0;
+                            font-weight: bold;
+                        }
+                        
+                        .report-type {
+                            margin: 20px 0 10px 0;
+                            font-weight: bold;
+                            font-size: 1.5em;
+                            text-align: center;
+                        }
+                        
+                        .print-table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-bottom: 20px; 
+                        }
+                        .print-table th, 
+                        .print-table td { 
+                            border: 1px solid #ddd; 
+                            padding: 8px; 
+                            text-align: left; 
+                        }
+                        .print-table th { 
+                            background-color: #f4f4f4; 
+                        }
+                        .stock-info { 
+                            line-height: 1.5; 
+                        }
+                        .total-in { color: #6c757d; }
+                        .total-stock { color: #28a745; }
+                        .usable-stock { 
+                            color: #007bff; 
+                            font-weight: bold; 
+                        }
+                        .expired-stock { color: #dc3545; }
+                        .out-stock { color: #6c757d; }
+                        @media print {
+                            .stock-info span { 
+                                display: block; 
+                                margin: 2px 0; 
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="report-header">
+                        <div class="header-content">
+                            <img src="../assets/img/icons/doh.jpeg" alt="DOH Logo" class="logo">
+                            <div class="header-title">
+                                <h2>TB DOTS</h2>
+                                <h3>5th District Negros</h3>
+                                <h4>Republic of The Philippines</h4>
+                                <h4>Department of Health</h4>
+                            </div>
+                            <img src="../assets/img/icons/logo.png" alt="TB Hub Logo" class="logo">
+                        </div>
+                        <h2 class="report-type">Inventory Report</h2>
+                        <p>Generated on: ${today}</p>
+                    </div>
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th>Brand Name</th>
+                                <th>Generic Name</th>
+                                <th>Unit</th>
+                                <th>Stock Details</th>
+                                <th>Nearest Expiry</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
 
             // Get all rows from the inventory table
             document.querySelectorAll('#inventoryTable tbody tr').forEach(row => {
@@ -1092,48 +1184,22 @@ $products = $conn->query($sql);
             content += `
                     </tbody>
                 </table>
-                <div style="margin-top: 30px;">
-                    <p><strong>Report Footer:</strong> This is an official inventory report.</p>
-                </div>
-            `;
+            </body>
+            </html>
+        `;
 
-            // Write the content to the new window
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Inventory Report</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; }
-                        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                        .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        .print-table th { background-color: #f4f4f4; }
-                        .print-header { text-align: center; margin-bottom: 20px; }
-                        .print-header h2 { margin: 0; padding: 10px 0; }
-                        .stock-info { line-height: 1.5; }
-                        .total-in { color: #6c757d; }
-                        .total-stock { color: #28a745; }
-                        .usable-stock { color: #007bff; font-weight: bold; }
-                        .expired-stock { color: #dc3545; }
-                        .out-stock { color: #6c757d; }
-                        @media print {
-                            .stock-info span { display: block; margin: 2px 0; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${content}
-                </body>
-                </html>
-            `);
-
-            // Trigger print
-            printWindow.document.close();
+        // Write the content to the new window
+        printWindow.document.write(content);
+        printWindow.document.close();
+        
+        // Trigger print after images have loaded
+        printWindow.onload = function() {
             printWindow.focus();
             setTimeout(() => {
                 printWindow.print();
             }, 250);
-        }
+        };
+    }
     </script>
 </body>
 </html>

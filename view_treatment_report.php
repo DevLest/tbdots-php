@@ -130,14 +130,41 @@ error_log("Initial medication fetch: " . print_r($medicationHistory, true));
             }
         }
         
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            width: 80px;
+            height: auto;
+        }
+        
+        .header-title {
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .header-title h2,
+        .header-title h3,
+        .header-title h4 {
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
-        }
-        
-        .report-header {
-            text-align: center;
-            margin-bottom: 30px;
         }
         
         .section {
@@ -229,7 +256,16 @@ error_log("Initial medication fetch: " . print_r($medicationHistory, true));
     </div>
 
     <div class="report-header">
-        <h2>Patient Treatment Report</h2>
+        <div class="header-content">
+            <img src="../assets/img/icons/doh.jpeg" alt="DOH Logo" class="logo">
+            <div class="header-title">
+                <h2>TB DOTS</h2>
+                <h3>5th District Negros</h3>
+                <h4>Republic of The Philippines</h4>
+                <h4>Department of Health</h4>
+            </div>
+            <img src="../assets/img/icons/logo.png" alt="TB Hub Logo" class="logo">
+        </div>
     </div>
 
     <div class="section">
